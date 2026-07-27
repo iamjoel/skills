@@ -1,0 +1,4 @@
+interface:
+  display_name: "提交 Git 改动"
+  short_description: "Commit, push, and draft requested PR descriptions"
+  default_prompt: "使用 $submit-git-changes 提交当前 Git 改动，并在我明确要求时提供 Markdown PR 描述。"
