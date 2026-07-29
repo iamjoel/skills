@@ -21,6 +21,31 @@ description: Inspect current Git changes, generate exactly three English candida
 - 只有用户在提交请求或当前对话中明确要求创建 PR，才可以在推送成功后创建 PR；仅要求“提供描述”不得创建 PR。
 - 创建 PR 前必须检查相同 head 与 base 是否已有 open PR，避免重复创建。创建成功后必须获取并返回 PR 的规范链接。
 - 每次执行 `git push` 前，都必须在同一个 shell 会话中设置阶段二指定的代理环境变量；不要把代理写入 shell profile 或 Git 全局配置。
+- 不得根据沙盒内 `gh auth status` 的失败直接宣布本机 GitHub CLI 认证失效或要求用户重新登录。只有按“GitHub 认证环境检查”在沙盒外复验仍失败后，才能把认证作为阻塞项。
+- 不得把 `gh auth status` 的原始输出返回到对话或日志摘要中；认证检查必须静默运行并只输出下方定义的固定状态，避免泄露 token 详情。
+
+## GitHub 认证环境检查
+
+仅在 GitHub PR 查询或创建确实需要 `gh` CLI 时执行本节。GitHub connector 已连接且覆盖所需的查询和创建操作时，直接使用 connector，不得仅因为沙盒内 `gh` 不可用或认证失败而中断流程。
+
+1. 沙盒内 `gh auth status` 失败只表示当前执行环境无法确认认证，不能据此判断本机认证状态。
+2. 需要 `gh` 时，请求在沙盒外执行只读认证检查。不要直接运行会回显账户或 token 详情的命令；使用以下静默检查并只输出固定状态：
+
+   ```sh
+   if gh auth status >/dev/null 2>&1; then
+     printf 'authenticated-current-env\n'
+   elif env -u GH_TOKEN -u GITHUB_TOKEN gh auth status >/dev/null 2>&1; then
+     printf 'authenticated-keyring\n'
+   else
+     printf 'not-authenticated\n'
+   fi
+   ```
+
+3. 状态为 `authenticated-current-env` 时，按正常方式运行后续 `gh` 命令。
+4. 状态为 `authenticated-keyring` 时，说明注入的 `GH_TOKEN` 或 `GITHUB_TOKEN` 与本机 keyring 认证不同；后续所有 `gh` 命令都必须使用 `env -u GH_TOKEN -u GITHUB_TOKEN gh ...`，不得要求用户重新登录。
+5. 如果当前环境认证通过但仓库查询因 token 策略、权限或组织限制失败，先在沙盒外使用移除 `GH_TOKEN` 和 `GITHUB_TOKEN` 的同一命令重试，再判断是否为真实权限问题。
+6. 只有沙盒外检查返回 `not-authenticated`，并且可用的 GitHub connector 也无法完成所需操作时，才要求用户运行 `gh auth login`。报告时明确说明“沙盒外认证检查失败”，不要把沙盒限制误报为本机认证失效。
+7. 区分认证失败、授权不足、组织 token 策略、网络失败和沙盒限制；不得把非认证错误统一描述为“gh 登录失效”。
 
 ## 阶段一：检查改动并生成候选信息
 
@@ -91,10 +116,10 @@ description: Inspect current Git changes, generate exactly three English candida
 
 如果用户明确要求创建 PR：
 
-1. 确认当前分支不是 detached HEAD、目标 commit 已成功推送、base 分支已经按阶段一的规则解析，且远端托管平台支持当前可用的 PR 创建工具。缺少必要信息时列出已知分支、remote 和 base，并询问用户，不要猜测。
+1. 确认当前分支不是 detached HEAD、目标 commit 已成功推送、base 分支已经按阶段一的规则解析，且远端托管平台支持当前可用的 PR 创建工具。缺少必要信息时列出已知分支、remote 和 base，并询问用户，不要猜测。需要判断 GitHub 工具认证时必须遵循“GitHub 认证环境检查”。
 2. 使用当前分支作为 head、已解析或用户指定的分支作为 base；创建 PR 时把 `origin/main` 这类 remote-tracking ref 转换为托管平台需要的分支名 `main`。用户没有指定 title 时，使用最终 commit 信息作为 PR title；用户没有指定 draft 时，创建 ready-for-review PR，不要自行改成 draft。
 3. 创建前通过托管平台工具或 CLI 查询相同 head 与 base 的 open PR。如果已经存在，不要重复创建；返回现有 PR 链接，并在完成报告中说明未新建 PR。
-4. 推送成功后再创建 PR。使用最终 Markdown 描述作为 PR body，并优先使用已认证的托管平台工具；对于 GitHub remote，可使用 GitHub connector，或在其不可用时使用 `gh pr create`。
+4. 推送成功后再创建 PR。使用最终 Markdown 描述作为 PR body，并优先使用已认证的托管平台工具；对于 GitHub remote，优先使用 GitHub connector，或在其不可用或能力不足时使用 `gh pr create`。connector 可完成任务时，不得把 `gh` 认证作为前置条件。
 5. 从创建结果中获取规范 PR URL；若结果未包含 URL，再查询刚创建的 PR。只有获得可访问的 URL 后，才报告 PR 创建成功。
 6. 如果创建或查询 PR 失败，保留已经完成的 commit 和 push，报告原始错误及当前状态，不要声称 PR 已创建，也不要回滚或重复 push。
 
