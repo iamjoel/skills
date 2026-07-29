@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend PR Code Review"
+  short_description: "只审查 PR 的前端改动，并按功能使用稳定 ID 渐进下钻"
+  default_prompt: "使用 $frontend-pr-code-review 审查这个 PR 的前端改动，先输出 Frontend Feature Map，并等待我回复功能 ID 后展开。"
