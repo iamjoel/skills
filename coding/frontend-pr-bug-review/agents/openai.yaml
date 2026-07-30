@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend PR Bug Review"
+  short_description: "用测试用例式总结审查前端 Bug 修复、根因和新增风险"
+  default_prompt: "使用 $frontend-pr-bug-review 审查这个前端 Bug 修复 PR，并严格按 output template 输出总结、风险项和 Review 详情。"

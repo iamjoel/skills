@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend PR Feature Review"
+  short_description: "只审查前端功能改动，验证用户流程、状态矩阵和兼容性"
+  default_prompt: "使用 $frontend-pr-feature-review 审查这个前端功能 PR，并严格按 output template 输出完整 review。"

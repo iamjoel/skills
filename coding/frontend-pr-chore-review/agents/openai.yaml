@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend PR Chore Review"
+  short_description: "只审查前端工程维护改动，验证依赖、构建、工具链和可复现性"
+  default_prompt: "使用 $frontend-pr-chore-review 审查这个前端 Chore PR，并严格按 output template 输出完整 review。"
