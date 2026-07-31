@@ -8,7 +8,7 @@
 
 | Skill                                                        | 简介                                                                                                                                   |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| [`frontend-pr-code-review`](./coding/frontend-pr-code-review/SKILL.md)         | 前端 PR Review 入口：按标题中的 `feat:`、`fix:`、`refactor:`、`chore:` 路由到对应专审，并统一收口结果。                                 |
+| [`frontend-pr-code-review`](./coding/frontend-pr-code-review/SKILL.md)         | 前端 PR Review 路由器：按标题或单一主意图选择一个 Bug、Feature、Refactor 或 Chore 专审 Skill，并原样返回专审结果。                     |
 | [`frontend-pr-bug-review`](./coding/frontend-pr-bug-review/SKILL.md)           | 审查前端 Bug 修复：还原问题与根因，判断是否从根因修复，并识别新增风险。                                                                |
 | [`frontend-pr-feature-review`](./coding/frontend-pr-feature-review/SKILL.md)   | 审查前端 Feature：描述用户能力，判断功能目标是否完整实现，并识别新增风险。                                                             |
 | [`frontend-pr-refactor-review`](./coding/frontend-pr-refactor-review/SKILL.md) | 审查前端 Refactor：判断重构目标、迁移完整性和行为等价性，并识别新增风险。                                                              |

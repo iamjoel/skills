@@ -1,4 +1,4 @@
 interface:
   display_name: "Frontend PR Code Review"
-  short_description: "分发四类前端专审、React 最佳实践检查并统一收口"
-  default_prompt: "使用 $frontend-pr-code-review 审查这个前端 PR，按标题分发专审，要求每个专审启动 Vercel React Best Practices subagent，并在入口 output template 中包含完整专审输出和最终收口。"
+  short_description: "将前端 PR Review 分发给一个对应的专审 Skill"
+  default_prompt: "使用 $frontend-pr-code-review 为这个前端 PR 选择并调用一个专审 Skill，返回专审结果。"

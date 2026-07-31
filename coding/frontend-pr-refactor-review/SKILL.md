@@ -81,4 +81,4 @@ description: Review only behavior-preserving frontend refactors in a pull reques
    - 完整读取 [references/output-template.md](references/output-template.md)。
    - 标题使用 PR 关联 issue 的编号；没有关联 issue 时按 template 规则回退到 PR 编号。
    - 只输出 `总结`、`风险项`、`功能 Review`，保持 template 的顺序和空状态。
-   - 被 `$frontend-pr-code-review` 分发时，只返回填充后的 template 作为专审输出，供入口 skill 完整嵌入。
+   - 被 `$frontend-pr-code-review` 分发时，返回填充后的 template，供入口 skill 原样透传。
