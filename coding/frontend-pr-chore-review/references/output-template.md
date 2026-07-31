@@ -1,121 +1,65 @@
 # Frontend Chore Review Output Template
 
-## 目录
-
-- 使用规则
-- Template
-
 ## 使用规则
 
 - 最终输出不要包裹在代码块中。
-- 保持下列 H1/H2 顺序；按实际数量重复 `Chore Review` 和 `Finding Detail` 块。
-- 替换所有占位符并删除 HTML 注释。无 P0/P1 时使用指定 Blockers 空状态；无 finding 时使用指定 Findings 空状态。
-- Code/config 使用可点击的本地绝对路径或规范 GitHub URL，并包含准确行号。
+- H1 标题使用 `#<issueId> Review 结果`；`issueId` 取 PR 关联的 issue 编号。没有关联 issue 时使用 `PR #<prId> Review 结果`。
+- 只输出 `总结`、`风险项`、`Review 详情` 三个 H2 模块，并保持顺序。
+- `Review 详情` 至少包含一个详情单元，并按独立依赖、配置、工具、生成或发布职责重复；不要把不相关维护合并为一个单元。
+- 每一步同时保留带准确行号、固定到 base 或 head commit SHA 的 GitHub URL 和逐字对应这些行的最小核心代码片段；不要使用本地文件路径。
+- 未新增或未找到验证时，在对应步骤直接说明，并省略链接和代码块。
 
 ## Template
 
-```markdown
-# Frontend PR Chore Review
+````markdown
+# #<issueId> Review 结果
 
-## Overview
+## 总结
 
-- Frontend verdict: <Approve | Comment | Request changes>
-- Frontend correctness: <patch is correct | patch is incorrect>
-- Chore type: <Dependency | Build | Test tooling | Codegen | CI | Config | Docs | Mixed>
-- Frontend size: <small | medium | large>
-- Frontend risk: <low | medium | high>
-- Chore units reviewed: <number>
-- Frontend files reviewed: <number>
-- Blocking findings: <number>
-- Review confidence: <0.0-1.0>
+- 维护目标：<使用“将 <旧依赖/工具/配置/产物> 维护为 <新状态>，并保持 <产品、构建、测试或发布不变量> 不变”>
+- 完成维护目标：<是 | 否>
+- 产品行为保持：<是 | 否>
+- 当前维护方式：<一句话说明当前 patch 如何同步依赖、配置、命令或产物>
 
-结论仅覆盖该 PR 的前端 Chore 切片。
+## 风险项
 
-## Blockers
+<!-- 每个风险重复以下块；风险类型只能二选一。没有风险时只写“无风险项。” -->
+### 风险 <number>
 
-<!-- 重复 P0/P1；没有时只写 No frontend blocking findings. -->
-- `<finding-id>` `[P0|P1]` <一句话摘要>
+- 类型：<没有完成维护目标 | 引入了新的问题>
+- 具体说明：<结合真实工程或用户路径和代码说明未完成的目标或新问题>
+- 建议修复：<给出可执行的维护补全或回归消除方向>
 
-## Frontend Chore Map
+## Review 详情
 
-| id | 工程单元 | 类型 | 规模 | 风险 | 结论 | 最高级别 | Findings |
-|---|---|---|---|---|---|---|---:|
-| `c1` | <依赖/构建/工具职责> | <Dependency/Build/Test tooling/Codegen/CI/Config/Docs> | <Small/Medium/Large> | <Low/Medium/High> | <Pass/Issues/Not fully verified> | <P0-P3/—> | <number> |
+<!-- 按独立依赖、配置、工具、生成或发布职责重复整个详情单元，直到覆盖全部前端改动。 -->
+### 详情 <number> — <维护单元名称>
 
-## Chore Reviews
+- 审查范围：<该单元覆盖的 source of truth、命令、产物、环境或消费者>
 
-<!-- 每个 cN/xN 重复以下完整块 -->
-### `<chore-id>` — <Chore 单元>
+1. [维护前状态](https://github.com/<owner>/<repo>/blob/<base-commit-sha>/<path>#L<start>-L<end>)：<原依赖、配置、命令或产物状态，以及需要保持的不变量>
 
-- Type: <Dependency | Build | Test tooling | Codegen | CI | Config | Docs>
-- Verdict: <Pass | Issues | Not fully verified>
-- Correctness: <correct | incorrect>
-- Size: <small | medium | large>
-- Risk: <low | medium | high>
-- Findings: <number>
+   ```<language>
+   <与链接行号一致的维护前核心代码或配置>
+   ```
 
-#### Engineering Contract
+2. [维护改动](https://github.com/<owner>/<repo>/blob/<head-commit-sha>/<path>#L<start>-L<end>)：<patch 如何更新 source of truth、配置或工具>
 
-- Goal: <维护目标>
-- Source of truth: <配置/生成源>
-- Allowed changes: <允许变化>
-- Invariants: <产品、构建、测试和发布不变量>
-- Environments: <local/CI/SSR/production>
-- Consumers: <脚本、包、产物或运行时消费方>
+   ```<language>
+   <与链接行号一致的维护核心代码或配置>
+   ```
 
-#### Frontend Config/Code Map
+3. [消费或工程链路](https://github.com/<owner>/<repo>/blob/<head-commit-sha>/<path>#L<start>-L<end>)：<脚本、CI、生成产物或运行时消费方如何同步>
 
-| id | Role | Code | 说明 |
-|---|---|---|---|
-| `<chore-id>.c1` | <Source/Config/Command/Tool/Consumer/Artifact/CI/Verification> | <clickable file:line> | <职责> |
+   ```<language>
+   <与链接行号一致的消费或工程链路核心代码>
+   ```
 
-#### Review Focus
+4. [验证](https://github.com/<owner>/<repo>/blob/<head-commit-sha>/<path>#L<start>-L<end>)：<测试、构建或生成检查如何证明维护目标>
 
-- Chore core check: <检查结果>
-- Risk overlay 1: <检查结果或 N/A>
-- Risk overlay 2: <检查结果或 N/A>
+   ```<language>
+   <与链接行号一致的核心验证代码或配置>
+   ```
 
-#### Findings
-
-| id | Priority | Confidence | 问题 | Frontend code/config |
-|---|---|---:|---|---|
-| `<chore-id>.i1` | <P0-P3> | <0.0-1.0> | <摘要> | <clickable file:line> |
-
-<!-- 当前单元无 finding 时，用 No actionable frontend findings for this chore unit. 代替表格 -->
-
-#### Validation
-
-- Paths/config reviewed: <范围>
-- Commands reviewed: <命令>
-- Commands executed: <实际运行和结果>
-- Environments checked: <环境>
-- Not verified: <未验证或 None>
-- Residual risks: <残余风险或 None>
-
-## Finding Details
-
-<!-- 每个 finding 重复；全局无 finding 时只写 No actionable frontend findings. -->
-### `<finding-id>` — [P1] <问题标题>
-
-- Chore unit: `<chore-id>` — <名称>
-- Frontend location: <clickable file:line>
-- Trigger: <真实命令、环境或构建路径>
-- Introduced by diff: <changed config/code 如何引入问题>
-- Affected path: <消费方、产物或用户路径>
-- Intentional change check: <为什么不是有意行为>
-- Problem: <为什么工程改动不正确>
-- Impact: <工程或用户影响>
-- Evidence: <命令、配置、产物、调用链或测试证据>
-- Suggested direction: <修复方向>
-- Verification: <验证方式>
-- Repository rule: <最小引用或 N/A>
-- Confidence: <0.0-1.0> (<high | medium | low>)
-
-## Review Validation
-
-- Frontend paths/config reviewed: <去重后的范围>
-- Commands/tests reviewed: <命令与测试>
-- Commands executed: <命令与结果>
-- Not verified: <未验证或 None>
-- Residual frontend risks: <残余风险或 None>
-```
+<!-- 未新增或未找到验证时，第 4 步改写为“4. 验证：未新增或未找到覆盖该单元的验证。”，不保留链接或代码块。 -->
+````

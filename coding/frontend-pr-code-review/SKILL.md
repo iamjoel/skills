@@ -38,6 +38,7 @@ description: Orchestrate and finalize a frontend pull-request code review by rou
    - 四种类型都未命中时，把 routing source 标记为 `fallback-analysis`。
 2. 建立统一 PR 快照并识别前端范围。
    - 确定 routing source 后，再读取 PR 描述、关联 issue、changed files、完整 patch、评论和检查状态，用于实际 review。
+   - 记录并冻结 base/head commit SHA；本次 review 的主 owner、专审和 subagent 必须使用同一快照，不重复解析或刷新 PR。
    - 读取适用的根级与目录级项目指令、前端包配置、测试约定和目录边界。按用户要求、作用域更具体的 `AGENTS.override.md`、`AGENTS.md` 和仓库 fallback 指令解析；更具体的规则优先。
    - 只执行只读检查和验证。除非用户明确要求修复，否则不要修改代码、发布评论或改变 PR 状态。
    - 根据仓库结构、manifest、构建配置和 import graph 判断前端文件，不要只依赖目录名。
@@ -50,9 +51,12 @@ description: Orchestrate and finalize a frontend pull-request code review by rou
    - Bug 交给 `$frontend-pr-bug-review`；Feature 交给 `$frontend-pr-feature-review`；Refactor 交给 `$frontend-pr-refactor-review`；Chore 交给 `$frontend-pr-chore-review`。
    - 给每个专审传递统一 PR 上下文、适用项目指令、明确的切片清单、相关 changed hunks、必要的 unchanged context 和可运行验证边界。
    - 不向专审泄露其他专审的结论或预期 finding。
-   - 只有 fallback 解析得到多类型时才需要多路分发；在并行能力可用且不扩大用户授权范围时并行，否则顺序执行。标题已命中的单类型 PR 由一个对应专审完成，编排层只做最终收口。
+   - 完整读取 [references/subagent-protocol.md](references/subagent-protocol.md)。只有存在独立取证任务且预期收益高于调度成本时才启用 subagent。
+   - 标题已命中的单类型 PR 始终只有一个对应专审 owner；owner 保留完整 diff、核心执行链、风险准入和最终模板，只把搜索、覆盖检查或独立验证交给 subagent。
+   - fallback 多类型可以并行运行不同专审，但专审 subagent 不得递归再启动 agent；一次只并行一个层级。
    - 专审是只读任务。任何修复、评论发布或 PR 状态修改都需要用户另行明确授权。
 5. 收集专审结果。
+   - 把 subagent 返回内容视为 candidate evidence，不视为 finding 或结论；专审 owner 必须回到冻结快照复核 changed location、真实路径、影响和建议。
    - 要求每个专审返回其 scope、correctness、verdict、稳定 map IDs、findings、validation、not verified 和 residual risks。
    - 专审失败或结果不完整时先补跑缺失切片；仍无法覆盖时标为 `partial`，不得给出 `Approve`。
 6. 聚合与裁决。

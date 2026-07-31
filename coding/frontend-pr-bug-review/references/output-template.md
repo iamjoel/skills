@@ -5,11 +5,13 @@
 - 最终输出不要包裹在代码块中。
 - H1 标题使用 `#<issueId> Review 结果`；`issueId` 取 PR 关联的 issue 编号。没有关联 issue 时使用 `PR #<prId> Review 结果`。
 - 只输出 `总结`、`风险项`、`Review 详情` 三个 H2 模块，并保持顺序。
-- `Review 详情` 中的代码链接只能使用带准确行号、固定到被审 commit 的 GitHub URL；不要使用本地文件路径。
+- `Review 详情` 至少包含一个详情单元，并按独立缺陷、根因或受影响路径重复；不要把不相关路径合并为一个单元。
+- 每一步同时保留带准确行号、固定到被审 commit 的 GitHub URL 和逐字对应这些行的最小核心代码片段；不要使用本地文件路径。
+- 未新增或未找到回归测试时，在对应步骤直接说明，并省略链接和代码块。
 
 ## Template
 
-```markdown
+````markdown
 # #<issueId> Review 结果
 
 ## 总结
@@ -29,9 +31,34 @@
 
 ## Review 详情
 
-<!-- 结合代码按真实执行顺序说明修复过程。所有链接使用被审 commit 的 GitHub blob URL。 -->
+<!-- 按独立修复路径重复整个详情单元，直到覆盖全部前端改动。 -->
+### 详情 <number> — <修复路径名称>
+
+- 审查范围：<该单元覆盖的用户路径、组件或调用链>
+
 1. [触发入口](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<缺陷如何进入该路径>
+
+   ```<language>
+   <与链接行号一致的核心代码>
+   ```
+
 2. [根因位置](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<原逻辑为什么产生问题>
+
+   ```<language>
+   <与链接行号一致的核心代码>
+   ```
+
 3. [修复位置](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<patch 具体改变了什么，以及为何生效>
-4. [回归测试](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<测试如何覆盖该问题；未新增或未找到时直接说明>
-```
+
+   ```<language>
+   <与链接行号一致的核心代码>
+   ```
+
+4. [回归测试](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<测试如何覆盖该问题>
+
+   ```<language>
+   <与链接行号一致的核心测试代码>
+   ```
+
+<!-- 未新增或未找到测试时，第 4 步改写为“4. 回归测试：未新增或未找到覆盖该路径的回归测试。”，不保留链接或代码块。 -->
+````

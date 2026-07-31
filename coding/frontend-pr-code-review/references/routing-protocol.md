@@ -113,6 +113,9 @@ pr:
   identifier: <url-or-number>
   title: <title>
   description: <relevant intent>
+snapshot:
+  base_sha: <base-commit-sha>
+  head_sha: <head-commit-sha>
 scope:
   slice_ids: [<router-local-id>]
   changed_hunks: [<file-and-line>]
@@ -128,7 +131,7 @@ validation:
   constraints: [<constraint>]
 ```
 
-要求专审使用对应 skill，接受 title-based declared intent，同时返回结构化字段和完整填充后的 specialist `output-template.md` 内容，不直接向用户发布最终报告。不要传递其他专审的 finding 或推断。
+要求专审使用对应 skill，接受 title-based declared intent，并始终使用 packet 中冻结的 commit 快照。需要 subagent 取证时，从该 packet 派生最小任务包，不重新解析 PR。专审返回结构化字段和完整填充后的 specialist `output-template.md` 内容，不直接向用户发布最终报告。不要传递其他专审的 finding 或推断。
 
 ## Coverage Ledger
 

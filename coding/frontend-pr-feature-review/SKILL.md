@@ -1,85 +1,66 @@
 ---
 name: frontend-pr-feature-review
-description: Review only frontend feature additions and intentional behavior changes in a pull request by validating user journeys, acceptance criteria, UI state matrices, integration completeness, compatibility, and tests. Use when the user asks to review a new or changed frontend, web, UI, React, Next.js, browser, or client-side feature.
+description: Review only frontend feature additions and intentional behavior changes in a pull request by describing the user-facing capability in one sentence, determining whether the feature goal is complete, identifying only incomplete-feature or newly introduced risks, and explaining the implementation through commit-pinned GitHub code links. Use when the user asks to review a new or changed frontend, web, UI, React, Next.js, browser, or client-side feature.
 ---
 
 # 前端 PR Feature Review
 
-只对 PR 中新增或有意改变的前端能力形成结论和 findings。按用户可感知功能组织审查，验证需求是否完整落到入口、状态、请求、渲染、异常与测试，而不是按文件列表复述实现。
+围绕三个问题审查前端功能：功能目标是什么、是否完整实现、是否引入新问题。最终只按 `output-template.md` 输出总结、风险项和结合代码的 Review 详情。
 
 ## 范围与路由
 
 包含：
 
-- 新增或有意改变用户行为的组件、hooks、状态、样式、i18n、浏览器逻辑和测试；
-- 被功能直接消费的共享类型、生成契约和 UI 包；
-- 为理解新旧行为、兼容性和用户流程所必需的未修改调用方与上下文。
+- 新增或有意改变用户行为的前端组件、hooks、状态、样式、i18n、浏览器逻辑和测试；
+- 被功能直接消费的共享类型、前端契约和 UI 包；
+- 为验证入口、状态、兼容性和用户结果所必需的未修改前端调用方。
 
-后端 endpoint、schema、错误码、权限和事件格式只作为前端契约背景读取。finding 的问题位置和修复方向必须落在本次 PR 的前端改动上。
+后端 endpoint、schema、错误码和服务实现只作为前端契约背景，不形成后端 review 结论。
 
-独立调用时，如果 PR 没有前端功能新增或行为变更，输出 `No frontend feature changes to review.` 并停止；混合 PR 只审查 Feature 切片，把独立 Bug、Refactor 或 Chore 列为未覆盖范围。由 `$frontend-pr-code-review` 根据 `feat:` 标题分发时，接受路由包中的全部前端 scope 和 declared intent；若 diff 与功能意图冲突，把它作为 intent mismatch 返回编排层，不要静默改派或直接停止。
+独立调用时，如果没有前端 Feature 改动，输出 `No frontend feature changes to review.` 并停止。由 `$frontend-pr-code-review` 根据 `feat:` 标题分发时，接受路由包中的前端 scope；若代码与功能意图不符，在风险项中用可证明的实际影响说明，不自行改派。
+
+## Subagent 加速（可选）
+
+- 主 review owner 必须读取完整前端 diff，并连续完成功能目标、端到端用户路径、完整性判断、风险准入和最终模板；这些核心判断不得拆分。
+- 只有中大型 PR 存在至少两个独立取证任务时才使用 subagent。小型或强耦合功能由 owner 独立完成。
+- PR 只解析一次并冻结 base/head SHA；subagent 使用同一只读 packet，不重新获取 PR，也不接收 owner 的疑似 finding。
+- 只可分发：调用方与兼容路径覆盖搜索；边界状态、共享组件影响和功能测试检查。
+- subagent 只返回 candidate evidence 和未验证项，不判断功能是否完成、不选择风险类型、不生成模板、不修改外部状态。
+- owner 必须回到冻结快照复核每条 candidate，并仅在满足 `risk-rubric.md` 全部条件时纳入风险项。
 
 ## 工作流
 
-1. 解析 PR。
-   - 从用户提供的 URL、编号或当前分支定位 PR；无法唯一定位时请求 PR。
-   - 读取 PR 描述、关联 issue、changed files、完整 patch、评论和检查状态。
-   - 读取适用的根级与目录级项目指令、前端包配置和测试约定。按用户要求、作用域更具体的 `AGENTS.override.md`、`AGENTS.md` 和仓库 fallback 指令解析；更具体的规则优先。
-   - 只执行只读检查和验证。除非用户明确要求修复，否则不要修改代码、发布评论或改变 PR 状态。
-2. 识别 Feature 范围。
-   - 独立调用时比较 PR 描述、issue、测试和实现，区分 Feature Add 与 Feature Change；由编排层按 `feat:` 标题分发时，使用路由包给出的 scope，不重新分类。
-   - 根据仓库结构、manifest、构建配置和 import graph 判断前端文件，不要只依赖目录名。
-   - 按前端 feature 切片单独计算规模和风险。
-3. 建立功能契约。
-   - 从 issue、PR 和现有产品行为提炼目标用户、入口、前置条件、成功结果和明确非目标。
-   - 对 Feature Change 写明 Before、After、必须保持的不变量和迁移/降级要求。
-   - 区分已声明需求、从代码可证明的不变量和仍需确认的产品问题。
-4. 建立 Feature Map。
-   - 按用户行为或 UI 流程分配 `f1..fN`；共享组件、缓存、契约、可访问性等跨功能问题使用 `x1..xN`。
-   - 把入口、权限/开关、状态、异步数据、浏览器副作用、渲染、错误处理和测试映射到对应 ID。
-   - 不要为每个文件或组件创建一个功能。
-5. 确定审查深度。
-   - 综合前端有效改动行数、文件数、调用链跨度和影响范围判断 `small | medium | large`。
-   - 认证、敏感数据、公共契约、异步竞态、缓存、SSR/水合、持久化、文件处理和生产依赖提升审查等级。
-   - 读取 [references/review-focus.md](references/review-focus.md)，选择 Feature Add 或 Feature Change 检查，并执行最多两个风险叠加项。
-6. 验证实现。
-   - 阅读 changed frontend code 及必要的 unchanged context、调用方、契约和测试。
-   - 沿真实用户操作验证入口、权限、loading、empty、success、error、disabled、取消、重复和恢复状态。
-   - 对 Feature Change 搜索旧调用方、旧 URL、旧缓存、旧持久化数据、feature flag 和降级路径。
-   - 验证测试覆盖用户可见结果和关键边界，而不是只验证 mock 或内部实现。
-   - 运行与风险相称的测试、类型检查或静态检查；不要安装依赖。区分“已运行”“仅阅读”和“未验证”。
-7. 形成 findings。
-   - 先收集所有 candidate findings，再完成 coverage pass。
-   - 读取 [references/finding-rubric.md](references/finding-rubric.md)，执行准入、归因、去重和完整性检查。
-   - 证据不足时归入 `Not verified` 或提出明确问题，不要伪装成确定缺陷。
-   - 对合格问题分配稳定 finding ID、priority 和 confidence，并挂到 `fN` 或 `xN`。
+1. 读取 PR 上下文。
+   - 定位 PR，读取标题、描述、关联 issue、前端 changed files、完整 patch、相关评论和检查状态。
+   - 读取适用的项目指令、前端包配置和测试约定；更具体作用域的规则优先。
+   - 只执行只读检查和验证。除非用户明确要求修复，否则不要修改代码、安装依赖、发布评论或改变 PR 状态。
+2. 写出功能描述。
+   - 从 issue、PR、测试和现有产品行为提炼目标用户、入口、前置条件、操作和可见结果。
+   - 使用一句话：`对于 <目标用户>，在 <入口/条件> 下，可以 <操作> 并获得 <结果>。`
+   - 对行为变更，以新行为为主，并保留必须兼容的旧行为作为验收条件。
+3. 建立功能路径。
+   - 沿入口、权限或开关、状态、请求、副作用、渲染和错误恢复验证真实用户流程。
+   - 按实际适用性检查 loading、empty、success、error、disabled、取消、重复、切换、恢复、旧数据和窄屏。
+   - 从 issue、现有行为和测试取证；无法证明的产品偏好不要补成需求。
+4. 判断功能是否完成。
+   - 说明 patch 在哪些代码层接入功能，并压缩成一句“当前实现方式”。
+   - 检查入口、调用方、注册表、路由、权限、文案、状态和测试是否同步。
+   - 只有声明的目标用户能够完成主要路径，已证明的关键状态和兼容要求均成立时，才把“完成功能目标”写为 `是`。
+5. 检查新增问题。
+   - 比较新旧正常路径、异常路径和相邻调用方。
+   - 检查状态生命周期、请求参数、缓存、并发、可访问性、响应式布局和共享组件影响。
+   - 检查功能测试是否覆盖用户可见结果和关键边界；没有测试时只说明事实，不自动构造风险。
+6. 形成风险项。
+   - 完整读取 [references/risk-rubric.md](references/risk-rubric.md)。
+   - 风险类型只能是 `没有完成功能目标` 或 `引入了新的问题`。
+   - 每项风险必须有 changed frontend code、真实触发路径、具体影响和可执行建议；证据不足时不输出风险。
+7. 编写 Review 详情。
+   - 按独立的用户能力或端到端用户路径拆成多个详情单元；每个单元都按功能入口、核心实现、状态与集成、功能测试的执行顺序解释 patch，不要按文件机械拆分或把不相关功能压缩成一个单元。
+   - 建立内部 coverage ledger，把每个 changed frontend hunk 归入一个主详情单元或标为该单元的支撑改动；存在未覆盖 hunk 时继续审查，不得输出最终结果。
+   - 每一步同时提供固定到被审 commit SHA、带准确行号的 GitHub blob URL，以及与链接行号一致的最小核心代码片段；代码逐字引用，通常保持 3–15 行，不用改写代码代替证据。
+   - 未新增或未找到功能测试时直接说明，并省略该步的链接和代码块，不生成虚构证据。
 8. 模板化输出。
-   - 输出前完整读取 [references/output-protocol.md](references/output-protocol.md) 和 [references/output-template.md](references/output-template.md)。
-   - 默认一次性输出所有适用功能、状态矩阵、findings 和 validation，严格遵循 template 的标题顺序、字段和空状态；不要自创另一套格式。
-   - 被 `$frontend-pr-code-review` 分发时，只返回填充后的 template 作为专审 payload，不加外围说明，供入口 skill 原样嵌入。
-   - 独立调用时也使用同一 template；用户后续可用稳定 ID 下钻。
-   - 同一次审查中保持 ID 稳定；新增功能只追加 ID。
-
-## Feature Review 判定
-
-- `Frontend correctness: patch is correct`：声明的功能在可证明范围内完整接入，关键状态和兼容路径正确，且没有真实前端 bug。
-- `Frontend correctness: patch is incorrect`：存在缺失或错误的可达状态、调用方遗漏、契约不匹配、兼容性回归或其他真实前端 bug。
-- 未声明的产品偏好不构成 finding；无法从 issue、PR、现有行为或代码契约证明时，放入问题或 `Not verified`。
-
-`Frontend correctness` 描述补丁是否正确，`Frontend verdict` 描述是否阻塞合并；两者不要混为一谈。结论只覆盖前端 feature 切片。
-
-## 优先级
-
-- `P0`：安全边界失守、敏感数据暴露、不可恢复的数据操作或大范围不可用。
-- `P1`：主要用户流程不可用、破坏性兼容问题或明确的高影响回归。
-- `P2`：特定条件下的功能错误、重要状态缺失、可访问性阻断、可靠性问题或重要测试缺口。
-- `P3`：低影响但具体可行动的维护问题；不要用于纯风格偏好。
-
-## 导航
-
-- `f2`：展开一个功能。
-- `f2.i1`：展开一个 finding。
-- `x1`：展开跨功能关注点。
-- `blockers`、`map`、`all`、`next`、`prev`、`back`：按当前层级导航。
-
-收到未知 ID 时，只返回合法 ID 的精简 Frontend Feature Map，不重新执行审查。
+   - 完整读取 [references/output-template.md](references/output-template.md)。
+   - 标题使用 PR 关联 issue 的编号；没有关联 issue 时按 template 规则回退到 PR 编号。
+   - 只输出 `总结`、`风险项`、`Review 详情`，保持 template 的顺序和空状态。
+   - 被 `$frontend-pr-code-review` 分发时，只返回填充后的 template 作为专审输出，供入口 skill 完整嵌入。

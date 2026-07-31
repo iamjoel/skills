@@ -1,132 +1,64 @@
 # Frontend Feature Review Output Template
 
-## 目录
-
-- 使用规则
-- Template
-
 ## 使用规则
 
 - 最终输出不要包裹在代码块中。
-- 保持下列 H1/H2 顺序；按实际数量重复 `Feature Review` 和 `Finding Detail` 块。
-- 替换所有占位符并删除 HTML 注释。无 P0/P1 时使用指定 Blockers 空状态；无 finding 时使用指定 Findings 空状态。
-- Code 使用可点击的本地绝对路径或规范 GitHub URL，并包含准确行号。
+- H1 标题使用 `#<issueId> Review 结果`；`issueId` 取 PR 关联的 issue 编号。没有关联 issue 时使用 `PR #<prId> Review 结果`。
+- 只输出 `总结`、`风险项`、`Review 详情` 三个 H2 模块，并保持顺序。
+- `Review 详情` 至少包含一个详情单元，并按独立用户能力或端到端用户路径重复；不要把不相关功能合并为一个单元。
+- 每一步同时保留带准确行号、固定到被审 commit 的 GitHub URL 和逐字对应这些行的最小核心代码片段；不要使用本地文件路径。
+- 未新增或未找到功能测试时，在对应步骤直接说明，并省略链接和代码块。
 
 ## Template
 
-```markdown
-# Frontend PR Feature Review
+````markdown
+# #<issueId> Review 结果
 
-## Overview
+## 总结
 
-- Frontend verdict: <Approve | Comment | Request changes>
-- Frontend correctness: <patch is correct | patch is incorrect>
-- Frontend change type: <Feature Add | Feature Change | Mixed Feature>
-- Frontend size: <small | medium | large>
-- Frontend risk: <low | medium | high>
-- Features reviewed: <number>
-- Frontend files reviewed: <number>
-- Blocking findings: <number>
-- Review confidence: <0.0-1.0>
+- 功能描述：<使用“对于 <目标用户>，在 <入口/条件> 下，可以 <操作> 并获得 <结果>”>
+- 完成功能目标：<是 | 否>
+- 当前实现方式：<一句话说明当前 patch 如何接入功能>
 
-结论仅覆盖该 PR 的前端 Feature 切片。
+## 风险项
 
-## Blockers
+<!-- 每个风险重复以下块；风险类型只能二选一。没有风险时只写“无风险项。” -->
+### 风险 <number>
 
-<!-- 重复 P0/P1；没有时只写 No frontend blocking findings. -->
-- `<finding-id>` `[P0|P1]` <一句话摘要>
+- 类型：<没有完成功能目标 | 引入了新的问题>
+- 具体说明：<结合真实用户路径和代码说明未完成的目标或新问题>
+- 建议修复：<给出可执行的功能补全或回归消除方向>
 
-## Frontend Feature Map
+## Review 详情
 
-| id | 功能 | 类型 | 规模 | 风险 | 结论 | 最高级别 | Findings |
-|---|---|---|---|---|---|---|---:|
-| `f1` | <用户可感知功能> | <Feature Add/Feature Change> | <Small/Medium/Large> | <Low/Medium/High> | <Pass/Issues/Not fully verified> | <P0-P3/—> | <number> |
+<!-- 按独立用户能力或端到端用户路径重复整个详情单元，直到覆盖全部前端改动。 -->
+### 详情 <number> — <用户能力或路径名称>
 
-## Feature Reviews
+- 审查范围：<该单元覆盖的入口、状态、请求、渲染或调用方>
 
-<!-- 每个 fN/xN 重复以下完整块 -->
-### `<feature-id>` — <功能名称>
+1. [功能入口](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<目标用户如何进入并触发功能>
 
-- Type: <Feature Add | Feature Change>
-- Verdict: <Pass | Issues | Not fully verified>
-- Correctness: <correct | incorrect>
-- Size: <small | medium | large>
-- Risk: <low | medium | high>
-- Findings: <number>
+   ```<language>
+   <与链接行号一致的核心代码>
+   ```
 
-#### Feature Contract
+2. [核心实现](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<patch 如何实现主要能力>
 
-- Target user: <目标用户>
-- Purpose: <目标>
-- Entry: <入口与前置条件>
-- Before: <旧行为或 Not available>
-- After: <新行为>
-- Success result: <用户可见结果>
-- Invariants: <必须保持的行为>
-- Non-goals / Questions: <明确非目标、问题或 None>
+   ```<language>
+   <与链接行号一致的核心代码>
+   ```
 
-#### State Matrix
+3. [状态与集成](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<权限、请求、状态、调用方或兼容路径如何接入>
 
-| Dimension | Covered | Evidence / Gap |
-|---|---|---|
-| Loading / empty / success / error | <yes/no/n/a> | <证据> |
-| Permission / flag / unavailable | <yes/no/n/a> | <证据> |
-| Repeat / cancel / switch / recover | <yes/no/n/a> | <证据> |
-| Old data / URL / cache / response | <yes/no/n/a> | <证据> |
+   ```<language>
+   <与链接行号一致的核心代码>
+   ```
 
-#### Frontend Code Map
+4. [功能测试](https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>#L<start>-L<end>)：<测试如何覆盖用户结果和关键边界>
 
-| id | Role | Code | 说明 |
-|---|---|---|---|
-| `<feature-id>.c1` | <Entry/UI/State/Async/Rendering/Tests> | <clickable file:line> | <职责> |
+   ```<language>
+   <与链接行号一致的核心测试代码>
+   ```
 
-#### Review Focus
-
-- Feature core check: <检查结果>
-- Risk overlay 1: <检查结果或 N/A>
-- Risk overlay 2: <检查结果或 N/A>
-
-#### Findings
-
-| id | Priority | Confidence | 问题 | Frontend code |
-|---|---|---:|---|---|
-| `<feature-id>.i1` | <P0-P3> | <0.0-1.0> | <摘要> | <clickable file:line> |
-
-<!-- 当前功能无 finding 时，用 No actionable frontend findings for this feature. 代替表格 -->
-
-#### Validation
-
-- User paths reviewed: <路径>
-- Frontend tests reviewed: <测试>
-- Frontend tests executed: <命令与结果>
-- Contract context checked: <契约背景>
-- Not verified: <未验证或 None>
-- Residual risks: <残余风险或 None>
-
-## Finding Details
-
-<!-- 每个 finding 重复；全局无 finding 时只写 No actionable frontend findings. -->
-### `<finding-id>` — [P1] <问题标题>
-
-- Feature: `<feature-id>` — <名称>
-- Frontend location: <clickable file:line>
-- Trigger: <真实触发条件>
-- Introduced by diff: <changed line 如何引入问题>
-- Affected path: <被证明受影响的路径>
-- Intentional change check: <为什么不是有意行为>
-- Problem: <为什么实现不正确>
-- User impact: <影响>
-- Evidence: <调用链、状态、契约或测试证据>
-- Suggested direction: <修复方向>
-- Verification: <验证方式>
-- Repository rule: <最小引用或 N/A>
-- Confidence: <0.0-1.0> (<high | medium | low>)
-
-## Review Validation
-
-- Frontend paths reviewed: <去重后的路径>
-- Tests reviewed: <测试>
-- Commands executed: <命令与结果>
-- Not verified: <未验证或 None>
-- Residual frontend risks: <残余风险或 None>
-```
+<!-- 未新增或未找到测试时，第 4 步改写为“4. 功能测试：未新增或未找到覆盖该路径的功能测试。”，不保留链接或代码块。 -->
+````
