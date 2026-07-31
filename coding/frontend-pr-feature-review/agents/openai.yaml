@@ -1,4 +1,4 @@
 interface:
   display_name: "Frontend PR Feature Review"
-  short_description: "用用户路径总结审查前端 Feature 的完整性与新增风险"
-  default_prompt: "使用 $frontend-pr-feature-review 审查这个前端 Feature PR，并严格按 output template 输出总结、风险项和 Review 详情。"
+  short_description: "审查前端 Feature 完整性、风险及 React 最佳实践"
+  default_prompt: "使用 $frontend-pr-feature-review 审查这个前端 Feature PR，启动 Vercel React Best Practices subagent，并严格按 output template 输出完整结果。"

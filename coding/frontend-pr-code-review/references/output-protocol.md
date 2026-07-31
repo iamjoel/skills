@@ -20,7 +20,7 @@
 严格使用入口 template 的顺序：
 
 1. 输出 Routing and Coverage 与统一 Frontend Review Map。
-2. 在 Specialist Reviews 中嵌入每个已执行专审的完整 template 输出。
+2. 在 Specialist Reviews 中嵌入每个已执行专审的完整 template 输出；代码质量与性能结果已位于各专审的风险项中。
 3. 对专审 findings 做归一化、去重和冲突裁决，再输出 Consolidated Blockers 与 Consolidated Findings。
 4. 仅在 fallback 多路分发出现真实共享根因时输出 Cross-type Review 条目。
 5. 汇总 Combined Validation，并用 Final Verdict 完成收口。

@@ -1,11 +1,11 @@
 ---
 name: frontend-pr-code-review
-description: Orchestrate and finalize a frontend pull-request code review by routing title prefixes feat, fix, chore, and refactor to matching specialist review skills, falling back to PR intent analysis only when no supported prefix exists, then reconciling findings and producing one unified verdict and review map. Use when the user asks for a general frontend, web, UI, React, Next.js, browser, or client-side PR/code review, or wants a consolidated result across specialist reviews. Do not use for an explicitly single-type review that directly names only a bug fix, feature, refactor, or chore.
+description: Orchestrate and finalize a frontend pull-request code review by routing title prefixes feat, fix, chore, and refactor to matching specialist review skills, requiring each specialist to run a dedicated Vercel React Best Practices subagent, falling back to PR intent analysis only when no supported prefix exists, then reconciling findings and producing one unified verdict and review map. Use when the user asks for a general frontend, web, UI, React, Next.js, browser, or client-side PR/code review, or wants a consolidated result across specialist reviews. Do not use for an explicitly single-type review that directly names only a bug fix, feature, refactor, or chore.
 ---
 
 # 前端 PR Code Review 编排与收口
 
-作为前端 PR review 的唯一编排层。先读取 PR 标题：命中 `feat:`、`fix:`、`chore:`、`refactor:` 时直接分发给对应专用 skill；只有标题未命中任何受支持类型时，才解析 PR 意图并切分。专审完成后统一处理覆盖率、冲突、重复 findings、整体 correctness/verdict 和最终导航。
+作为前端 PR review 的唯一编排层。先读取 PR 标题：命中 `feat:`、`fix:`、`chore:`、`refactor:` 时直接分发给对应专用 skill；只有标题未命中任何受支持类型时，才解析 PR 意图并切分。每个专审都必须调用独立的 `$vercel-react-best-practices` subagent。专审完成后统一处理覆盖率、冲突、重复 findings、整体 correctness/verdict 和最终导航。
 
 不要在本 skill 中复制四类专审的详细检查表。具体审查逻辑分别由：
 
@@ -51,13 +51,14 @@ description: Orchestrate and finalize a frontend pull-request code review by rou
    - Bug 交给 `$frontend-pr-bug-review`；Feature 交给 `$frontend-pr-feature-review`；Refactor 交给 `$frontend-pr-refactor-review`；Chore 交给 `$frontend-pr-chore-review`。
    - 给每个专审传递统一 PR 上下文、适用项目指令、明确的切片清单、相关 changed hunks、必要的 unchanged context 和可运行验证边界。
    - 不向专审泄露其他专审的结论或预期 finding。
-   - 完整读取 [references/subagent-protocol.md](references/subagent-protocol.md)。只有存在独立取证任务且预期收益高于调度成本时才启用 subagent。
-   - 标题已命中的单类型 PR 始终只有一个对应专审 owner；owner 保留完整 diff、核心执行链、风险准入和最终模板，只把搜索、覆盖检查或独立验证交给 subagent。
-   - fallback 多类型可以并行运行不同专审，但专审 subagent 不得递归再启动 agent；一次只并行一个层级。
+   - 完整读取 [references/subagent-protocol.md](references/subagent-protocol.md)。每个专审无条件启动一个 `$vercel-react-best-practices` subagent；其他取证 subagent 仍只在收益高于调度成本时启用。
+   - 标题已命中的单类型 PR 始终只有一个对应专审 owner；owner 保留完整 diff、核心执行链、风险准入和最终模板，Vercel subagent 只负责 React/Next.js 最佳实践候选问题。
+   - fallback 多类型可并行运行专审，但必须为每个专审的 Vercel subagent 保留执行槽；必要时串行专审，不得因并发限制跳过强制 subagent。
+   - 除 `$vercel-react-best-practices` subagent 这一明确例外外，作为 subagent 运行的专审不得继续递归启动其他 agent。
    - 专审是只读任务。任何修复、评论发布或 PR 状态修改都需要用户另行明确授权。
 5. 收集专审结果。
    - 把 subagent 返回内容视为 candidate evidence，不视为 finding 或结论；专审 owner 必须回到冻结快照复核 changed location、真实路径、影响和建议。
-   - 要求每个专审返回其 scope、correctness、verdict、稳定 map IDs、findings、validation、not verified 和 residual risks。
+   - 要求每个专审返回其 scope、correctness、verdict、稳定 map IDs、findings、validation、not verified、residual risks 和 Vercel React Best Practices subagent 状态与结果。
    - 专审失败或结果不完整时先补跑缺失切片；仍无法覆盖时标为 `partial`，不得给出 `Approve`。
 6. 聚合与裁决。
    - 完整读取 [references/aggregation-protocol.md](references/aggregation-protocol.md)。
@@ -67,7 +68,7 @@ description: Orchestrate and finalize a frontend pull-request code review by rou
 7. 输出与导航。
    - 输出前完整读取 [references/output-protocol.md](references/output-protocol.md) 和 [references/output-template.md](references/output-template.md)。
    - 严格按照入口 template 输出统一收口；不要自创另一套格式。
-   - 在 `Specialist Reviews` 中按 Bug、Feature、Refactor、Chore 的固定顺序，嵌入本次实际执行的每个专审完整 template 输出；未执行的类型省略。
+   - 在 `Specialist Reviews` 中按 Bug、Feature、Refactor、Chore 的固定顺序，嵌入本次实际执行的每个专审完整 template 输出；经复核的 Vercel React Best Practices 结果已作为 `代码质量问题` 或 `性能问题` 包含在专审风险项中。
    - 除聚合所需的稳定 ID 归一化外，不删减、重写或概括专审输出。
    - 用户回复稳定 ID 后，从已收集的专审结果展开；不要重新执行整个 PR review。
    - 同一次审查中保持所有 ID 稳定；新发现的单元只追加 ID。

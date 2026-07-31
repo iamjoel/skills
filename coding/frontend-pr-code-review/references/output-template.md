@@ -4,7 +4,7 @@
 
 - 最终输出不要包裹在代码块中。
 - 保持下列 H1/H2 顺序，替换所有占位符并删除 HTML 注释。
-- `Specialist Reviews` 必须包含本次实际执行的每个专审完整 template 输出，顺序固定为 Bug、Feature、Refactor、Chore；未执行的类型不输出占位。
+- `Specialist Reviews` 必须包含本次实际执行的每个专审完整 template 输出，顺序固定为 Bug、Feature、Refactor、Chore；经复核的代码质量与性能问题包含在对应专审风险项中，未执行的类型不输出占位。
 - 专审输出除稳定 ID 归一化外必须完整保留。入口层的收口内容放在专审输出之后。
 - 无 P0/P1 时使用指定 Blockers 空状态；无 consolidated finding 时使用指定 Findings 空状态。
 

@@ -1,4 +1,4 @@
 interface:
   display_name: "Frontend PR Refactor Review"
-  short_description: "只审查前端重构，验证行为等价、迁移完整性和抽象收益"
-  default_prompt: "使用 $frontend-pr-refactor-review 审查这个前端重构 PR，判断目标是否完成、行为是否保持，并按精简模板输出风险项和 Review 详情。"
+  short_description: "审查前端重构等价性、风险及 React 最佳实践"
+  default_prompt: "使用 $frontend-pr-refactor-review 审查这个前端重构 PR，启动 Vercel React Best Practices subagent，并严格按 output template 输出完整结果。"

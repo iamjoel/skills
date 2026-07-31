@@ -1,8 +1,26 @@
 # Frontend Review Subagent Protocol
 
-使用 subagent 加速独立取证，不拆分核心审查推理。
+每个专审都使用一个强制的 Vercel React Best Practices subagent；其他 subagent 只用于加速独立取证。任何 subagent 都不拆分核心审查推理。
 
-## 启用条件
+## 强制 Vercel React Best Practices 任务
+
+每个 Bug、Feature、Refactor、Chore 专审都必须：
+
+1. 启动一个独立 subagent，并把以下指令原样放入 subagent task：
+
+   ```text
+   Use `$vercel-react-best-practices`.
+   Resolve it from the active Codex global skill catalog and read its `SKILL.md`
+   completely before reviewing.
+   ```
+2. 传递冻结的 base/head SHA、该专审的完整 assigned frontend diff、适用项目规则和必要上下文。
+3. 要求它检查全部 assigned 改动，只加载相关 rule files，并返回问题、head commit GitHub 链接、逐字核心代码、修复建议和命中的 rule。
+4. 对无适用 React/Next.js 改动、无问题和未完成三种状态分别明确返回。
+5. 由专审 owner 复核、去重，分类为 `代码质量问题` 或 `性能问题` 后写入专审风险项；未经 owner 复核的结果不得进入输出。
+
+该任务不受下方“可选取证 subagent”的启用条件限制。
+
+## 可选取证 Subagent 的启用条件
 
 仅在以下条件同时成立时启用：
 
@@ -30,6 +48,8 @@
 - 生成最终模板；
 - 发布评论、修改文件或改变 PR 状态。
 
+Vercel subagent 可以判断某段 changed code 是否命中该 skill 的具体 rule，但不得决定专审的根因、目标完整性、行为等价性、风险类型或 verdict。
+
 ## 冻结 Review Packet
 
 所有 subagent 使用同一份最小 packet，不重新获取或刷新 PR：
@@ -53,6 +73,10 @@ constraints:
   read_only: true
   do_not_refetch_pr: true
   do_not_render_final_template: true
+required_prompt: |
+  Use `$vercel-react-best-practices`.
+  Resolve it from the active Codex global skill catalog and read its `SKILL.md`
+  completely before reviewing.
 ```
 
 传递原始代码和约束，不传递主 owner 的疑似 finding 或预期答案。
@@ -87,6 +111,21 @@ not_verified: <remaining-gap>
 
 允许返回零 candidates。不要为了证明 subagent 有用而制造问题。
 
+Vercel subagent 使用以下附加契约：
+
+```yaml
+status: completed | not-applicable | incomplete
+checked: [<assigned paths and relevant rules>]
+issues:
+  - problem: <命中的 rule 和具体影响>
+    suggested_risk_type: <代码质量问题 | 性能问题>
+    github_url: <head commit GitHub blob URL with exact lines>
+    code: <verbatim changed code>
+    fix_suggestion: <actionable direction>
+    rule: <vercel-react-best-practices rule id>
+reason: <仅 not-applicable 或 incomplete 时填写>
+```
+
 ## 收口门槛
 
 主 review owner 对每条 candidate 重新确认：
@@ -97,10 +136,11 @@ not_verified: <remaining-gap>
 4. 满足对应 `risk-rubric.md` 的全部条件；
 5. 与其他 candidate 不重复。
 
-未经 owner 复核的 candidate 不得进入风险项。
+未经 owner 复核的 candidate 不得进入风险项。最终风险类型由 owner 决定，subagent 的 `suggested_risk_type` 只作为候选。
 
 ## 并发约束
 
-- 单类型 review：一个 owner，加一至三个证据 subagent。
-- fallback 多类型 review：可以并行专审，但只并行这一层；专审不得继续递归分发。
-- 始终为 owner 保留一个执行槽，并根据可用并发数减少任务。
+- 单类型 review：一个 owner、一个强制 Vercel subagent；可用槽位允许时再加一至两个可选取证 subagent。
+- fallback 多类型 review：可并行专审，但每个专审都必须获得一次 Vercel subagent 执行机会；槽位不足时串行专审。
+- 作为 subagent 运行的专审只允许继续启动其强制 Vercel subagent，不得递归启动可选取证 agent。
+- 始终为 owner 保留一个执行槽，并优先保证强制 Vercel subagent。

@@ -26,12 +26,18 @@ validation:
   executed: <commands and results>
   not_verified: <gaps>
 residual_risks: <risks>
+vercel_react_best_practices:
+  status: completed | not-applicable | incomplete
+  issues: <verified problem, risk type, GitHub code URL, verbatim code, fix suggestion, rule>
+  reason: <only for not-applicable or incomplete>
 rendered_output: <完整填充后的 specialist output-template 内容>
 ```
 
 缺少 scope、location 或 finding 证据时，不要猜测补全；退回专审补充或把 coverage 标为 partial。
 
-`rendered_output` 是入口最终输出的组成部分。除稳定 ID 归一化外，不得删减、改写或用摘要替代；在入口 `Specialist Reviews` 中按 Bug、Feature、Refactor、Chore 顺序完整嵌入。
+`rendered_output` 是入口最终输出的组成部分。经 owner 复核的 Vercel React Best Practices 问题必须以 `代码质量问题` 或 `性能问题` 进入其 `风险项`；除稳定 ID 归一化外，不得删减、改写或用摘要替代。在入口 `Specialist Reviews` 中按 Bug、Feature、Refactor、Chore 顺序完整嵌入。
+
+代码质量与性能风险同时进入 specialist `findings`，参与正常的归因、去重、priority、confidence 和 verdict 计算；不要只展示在 specialist output 而遗漏聚合。
 
 ## ID 归一化
 
@@ -122,4 +128,5 @@ rendered_output: <完整填充后的 specialist output-template 内容>
 - 后端问题没有被包装成前端 finding；
 - 最终 ID 唯一且稳定；
 - 每个已执行专审的完整 `rendered_output` 已嵌入入口 template；
+- 每个已执行专审都有 Vercel React Best Practices subagent 状态，且合格问题已作为 `代码质量问题` 或 `性能问题` 进入其 risks、findings 和 `rendered_output`；
 - partial coverage 时没有给出 `Approve`。
