@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dify Hotfix Backport PR"
+  short_description: "Create Dify hotfix backport PRs"
+  default_prompt: "Use $dify-hotfix-backport-pr to create hotfix/1.15.0-fix.4 from a main commit and open the backport PR."
