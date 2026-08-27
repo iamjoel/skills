@@ -1,6 +1,6 @@
 ---
 name: dify-hotfix-backport-pr
-description: Create Dify upstream hotfix branches and fork-to-upstream backport PRs. Use when the user gives a target hotfix branch such as `hotfix/1.15.0-fix.4` and a source commit to cherry-pick, asks to backport a main commit into a Dify hotfix release branch, or asks to repair/force-push an existing hotfix cherry-pick PR.
+description: Create Dify upstream hotfix branches and same-repository backport PRs. Use when the user gives a target hotfix branch such as `hotfix/1.15.0-fix.4` and a source commit to cherry-pick, asks to backport a main commit into a Dify hotfix release branch, or asks to repair an existing upstream hotfix cherry-pick PR.
 ---
 
 # Dify Hotfix Backport PR
@@ -8,13 +8,13 @@ description: Create Dify upstream hotfix branches and fork-to-upstream backport 
 ## Scope
 
 Use this in `/Users/hejl/projects/dify` for hotfix backports from `myori/main` into
-`langgenius/dify:hotfix/<version>-fix.N`, with the PR branch pushed to the user's fork.
+`langgenius/dify:hotfix/<version>-fix.N`. Push the PR branch directly to
+`langgenius/dify` through `myori`; never push it to the `hjlarry/dify` fork.
 
 Local assumptions for this checkout:
 
 - `myori` is upstream `langgenius/dify`.
-- `origin` is the user's fork `hjlarry/dify`.
-- Hotfix PRs target `myori/<target-hotfix-branch>` and use `hjlarry:<local-pr-branch>` as the head.
+- Hotfix PRs use `myori/<target-hotfix-branch>` as the base and an upstream branch with the same name as the local PR branch as the head.
 - `.github/scripts/check-hotfix-cherry-picks.sh` requires both the `(cherry picked from commit <sha>)` line and a source SHA reachable from `myori/main`.
 
 ## Required Inputs
@@ -51,7 +51,6 @@ If the worktree has unrelated changes, do not reset or stage them. Ask before pr
 
 ```bash
 git fetch myori '+refs/heads/main:refs/remotes/myori/main' '+refs/heads/hotfix/*:refs/remotes/myori/hotfix/*'
-git fetch origin '+refs/heads/*:refs/remotes/origin/*'
 ```
 
 4. Derive the previous hotfix branch from the target:
@@ -123,32 +122,36 @@ pnpm -C web test <focused-test-file>
 
 Prefer targeted tests over broad suites unless the change's blast radius requires more.
 
-9. Push safely.
+9. Push the PR branch directly to upstream.
+
+Never push the PR branch to `origin` or `hjlarry/dify`.
 
 For a new PR branch:
 
 ```bash
-git push -u origin "$(git branch --show-current)"
+branch="$(git branch --show-current)"
+git push -u myori "HEAD:refs/heads/${branch}"
 ```
 
-For an existing branch rewrite, read the current remote SHA and use an explicit lease:
+For an existing branch rewrite, fetch its current upstream SHA and use an explicit lease:
 
 ```bash
 branch="$(git branch --show-current)"
-remote_sha="$(git rev-parse "origin/${branch}")"
-git push --force-with-lease="refs/heads/${branch}:${remote_sha}" origin "HEAD:refs/heads/${branch}"
+git fetch myori "refs/heads/${branch}:refs/remotes/myori/${branch}"
+remote_sha="$(git rev-parse "refs/remotes/myori/${branch}")"
+git push --force-with-lease="refs/heads/${branch}:${remote_sha}" myori "HEAD:refs/heads/${branch}"
 ```
 
 10. Create or update the PR.
 
-Create a draft PR against upstream:
+Create a draft PR against the upstream hotfix branch. Because the head branch is in the same repository, pass the branch name without a fork owner:
 
 ```bash
 gh pr create \
   --repo langgenius/dify \
   --draft \
   --base hotfix/1.15.0-fix.4 \
-  --head "hjlarry:$(git branch --show-current)" \
+  --head "$(git branch --show-current)" \
   --title "<commit subject>" \
   --body-file /tmp/dify-hotfix-pr-body.md
 ```
@@ -191,7 +194,8 @@ Report:
 
 - Upstream target branch and base SHA.
 - Source SHA and generated hotfix commit SHA.
-- PR branch and PR URL.
+- Upstream PR branch and PR URL.
 - Whether the PR is draft and mergeable.
+- Confirmation that the fork was not used.
 - Exact validation commands and results.
 - Any blockers, especially source commits not reachable from `myori/main`.
