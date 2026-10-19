@@ -1,22 +1,22 @@
 ---
 name: submit-git-changes
-description: Inspect current Git changes, generate exactly three English candidate commit messages, optionally draft a Markdown pull request description, then wait for the user to select one, commit, and push. When the submission request explicitly asks to create a pull request, create it after a successful push and return its URL. For the branch's first commit, output a generated pull request description with an optional Linear ID unless the same description was already provided with the candidates. If remote integration causes conflicts, list the conflicted files and ask before resolving them automatically. Use whenever the user says “提交”, “提交当前改动”, “提交并提供描述”, “提交并创建 PR”, “commit”, “commit and push”, or otherwise asks to submit the current repository changes.
+description: Inspect current Git changes, use an appropriate English commit message by default, then commit and push. Offer exactly three candidate messages and wait for a selection only when the user explicitly asks to choose. Optionally provide a Markdown PR description or create an explicitly requested PR after pushing. For the branch's first commit, output a PR description unless already provided. Ask before resolving merge conflicts. Use when the user asks to submit current repository changes, including “提交”, “提交当前改动”, “提交并提供描述”, “提交并创建 PR”, “commit”, or “commit and push”.
 ---
 
 # 提交 Git 改动
 
-严格按顺序完成候选信息、可选的 Markdown 描述草稿、用户选择、提交、推送、可选的 PR 创建、首次提交的 PR 描述输出和冲突处理。把用户说“提交”视为提交并推送当前仓库改动的请求；把“提交并提供描述”“提交并生成 PR 描述”或同义请求视为还要在候选信息阶段提供 Markdown PR 描述草稿；把“提交并创建 PR”或同义请求视为推送成功后创建 PR，并返回 PR 链接。不得跳过下面的确认点。
+按顺序完成改动检查、提交信息确定、可选的 Markdown 描述草稿、提交、推送、可选的 PR 创建、首次提交的 PR 描述输出和冲突处理。默认根据实际改动自动确定一条合适的英文 commit 信息并继续执行，不提供候选，也不等待用户选择或确认信息；只有用户主动要求选择提交信息时，才提供候选并等待选择。把用户说“提交”视为提交并推送当前仓库改动的请求；把“提交并提供描述”“提交并生成 PR 描述”或同义请求视为还要在阶段一提供 Markdown PR 描述草稿；把“提交并创建 PR”或同义请求视为推送成功后创建 PR，并返回 PR 链接。提供描述或创建 PR 的请求本身不触发提交信息选择。
 
-## 不可跳过的确认点
+## 执行规则与确认点
 
 - 所有候选和最终 commit 信息都必须使用英文，即使用户或仓库使用其他语言。
-- 在用户选择 commit 信息前，不得暂存、commit、push 或创建 PR。
+- 只有用户主动要求选择 commit 信息时，才在其选择前禁止暂存、commit、push 或创建 PR。默认模式自动确定信息；用户直接指定了符合规则的信息时使用该信息，无须再次确认。
 - 在用户明确同意自动解决冲突前，不得编辑冲突文件、完成 merge 或继续 push。
 - 不得使用 force push、`reset --hard`、丢弃改动、绕过 hooks，或自行 amend 已有 commit。
 - 保留用户的全部现有改动；任何额外变更都必须服务于解决已确认的 merge 冲突。
 - 只有用户在提交请求或当前对话中明确提供 Linear ID 时，才在 PR 描述中输出 Linear 关联行；不得猜测、补全或主动创建 Linear ID。根据实际改动的主要性质选择动词：功能使用 `Implements <Linear ID>`，重构使用 `Completes <Linear ID>`，只有 Bug 修复使用 `Fixes <Linear ID>`。不得把功能或重构统一写成 `Fixes`；如果一次改动包含多种性质，按主要目标选择。
 - 只有用户明确要求在提交时提供描述或创建 PR，才在阶段一提前输出 Markdown PR 描述；普通“提交”请求不提前输出。
-- 提前输出的描述是基于当时 diff 和验证结果生成的草稿。如果等待用户选择期间改动发生实质变化，必须与 commit 候选一起重新生成。
+- 提前输出的描述是基于当时 diff 和验证结果生成的草稿。如果提交前改动发生实质变化，必须重新检查提交信息并更新描述；只有处于用户主动要求的选择模式时，才重新提供候选并等待选择。
 - 每次实际输出 PR 描述时，都必须把完整描述包裹在带 `markdown` 语言标记的 fenced code block 中，方便用户直接复制；代码块内不得包含额外说明。
 - 只有用户在提交请求或当前对话中明确要求创建 PR，才可以在推送成功后创建 PR；仅要求“提供描述”不得创建 PR。
 - 创建 PR 前必须检查相同 head 与 base 是否已有 open PR，避免重复创建。创建成功后必须获取并返回 PR 的规范链接。
@@ -47,7 +47,7 @@ description: Inspect current Git changes, generate exactly three English candida
 6. 只有沙盒外检查返回 `not-authenticated`，并且可用的 GitHub connector 也无法完成所需操作时，才要求用户运行 `gh auth login`。报告时明确说明“沙盒外认证检查失败”，不要把沙盒限制误报为本机认证失效。
 7. 区分认证失败、授权不足、组织 token 策略、网络失败和沙盒限制；不得把非认证错误统一描述为“gh 登录失效”。
 
-## 阶段一：检查改动并生成候选信息
+## 阶段一：检查改动并确定提交信息
 
 1. 确认当前目录属于 Git worktree；否则说明问题并停止。
 2. 检查分支、upstream、remote、工作区状态、已暂存与未暂存 diff，并查看未跟踪文件中与提交有关的内容。不要输出密钥或凭据的内容。
@@ -59,21 +59,21 @@ description: Inspect current Git changes, generate exactly three English candida
    - 以 commit 前的状态运行等价于 `git rev-list --count <base>..HEAD` 的只读检查。结果为 `0` 时记录为“本次是分支第一个提交”；大于 `0` 时记录为“分支已有提交”。
 7. 如果用户提供了 Linear ID，保留用户提供的单行 ID 原文；如果值为空、包含换行或控制字符，要求用户重新提供，不要自行修正。
 8. 记录用户是否明确要求创建 PR，以及是否指定 draft、base 或 title。没有明确要求时记录为“不创建 PR”；仅要求提供 PR 描述不等于要求创建 PR。
-9. 根据全部当前改动生成恰好 3 条单行 commit 信息。每条都必须：
+9. 默认根据全部当前改动自动确定一条合适的单行 commit 信息；用户直接指定信息时优先使用，并按阶段二步骤 2 验证。只有用户主动要求选择提交信息时，才生成恰好 3 条候选。所有信息都必须：
    - 严格以 `feat: `、`fix: ` 或 `chore: ` 之一开头；不要使用带 scope 的 `feat(x):` 形式。
    - 准确反映主要改动，不把维护工作误写成新功能，也不虚构未发生的修改。
    - 冒号后的自然语言全部使用英文；不要因为用户或仓库使用中文或其他语言而切换语言。
    - 简洁、具体。遇到非英文文件名、术语或标识符时，用英文描述其作用，不要把非英文自然语言写入 commit 信息。
-10. 先用一句话概括准备提交的改动，再按 `1`、`2`、`3` 列出英文候选信息。
-11. 如果用户明确请求在提交时提供描述或创建 PR，紧接候选信息按“Markdown 描述格式”输出一份基于当前 diff 和已完成验证的草稿。不要添加“PR description”等额外标题；必须把完整描述包裹在带 `markdown` 语言标记的 fenced code block 中。创建 PR 时使用这份描述作为 PR body。
-12. 请用户回复序号，或提供一条同时符合前缀规则和全英文规则的修改版信息，然后停止并等待回复。
+10. 用一句话概括准备提交的改动。只有在选择模式下，才按 `1`、`2`、`3` 列出英文候选信息；默认模式不输出候选或请求信息确认。
+11. 如果用户明确请求在提交时提供描述或创建 PR，在改动概括后（选择模式下在候选信息后）按“Markdown 描述格式”输出一份基于当前 diff 和已完成验证的草稿。不要添加“PR description”等额外标题；必须把完整描述包裹在带 `markdown` 语言标记的 fenced code block 中。创建 PR 时使用这份描述作为 PR body。
+12. 只有在选择模式下，才请用户回复序号，或提供一条同时符合前缀规则和全英文规则的修改版信息，然后停止并等待回复。默认模式直接进入阶段二。
 
-## 阶段二：按用户选择提交并推送
+## 阶段二：使用确定的信息提交并推送
 
-1. 收到选择后重新检查状态和 diff。如果等待期间改动发生了实质变化，重新生成 3 条候选信息；若用户已明确请求描述或创建 PR，同时重新生成 Markdown 描述，然后再次等待选择。
-2. 验证最终信息严格匹配 `^(feat|fix|chore): .+`，并确认冒号后的自然语言全部为英文。如果用户提供的信息包含中文或其他非英文自然语言，给出一条英文改写并再次请求确认；不要直接提交，也不要未经确认自行替换。
+1. 提交前重新检查状态和 diff；选择模式下在收到选择后执行。如果改动发生了实质变化，重新检查并概括提交范围：默认模式自动更新生成的信息并继续，用户直接指定的信息仍准确时保留；选择模式重新生成 3 条候选并再次等待选择。若用户已明确请求描述或创建 PR，同时更新 Markdown 描述草稿。
+2. 验证最终信息严格匹配 `^(feat|fix|chore): .+`，并确认冒号后的自然语言全部为英文且准确反映当前改动。自动生成的信息不符合要求时自行修正，无须确认。如果用户明确指定的信息不符合要求，给出一条符合要求的英文改写并请求确认；不要直接提交，也不要未经确认自行替换或展开为三条候选。
 3. 在通过敏感文件检查后，用 `git add -A` 暂存当前改动。确认 staged diff 非空且与刚才概括的范围一致，并运行 `git diff --cached --check`。
-4. 使用用户选定的完整信息创建 commit。把信息作为单个安全引用的参数传给 Git；不要让其中的 shell 字符被执行。
+4. 使用最终确定的完整信息创建 commit。把信息作为单个安全引用的参数传给 Git；不要让其中的 shell 字符被执行。
 5. 如果 commit hook 或 commit 命令失败，报告原始错误和当前状态，不要使用 `--no-verify`。
 6. 推送当前分支。每次执行 `git push` 前，包括远端分歧处理后的重试，都先在同一个 shell 会话中执行：
 
@@ -88,7 +88,7 @@ description: Inspect current Git changes, generate exactly three English candida
    - 有多个可能的 remote、没有 remote，或处于 detached HEAD 时，列出可用信息并询问目标，不要猜测。
 7. 推送成功后：
    - 如果用户明确要求创建 PR，无论本次是否为分支第一个提交，都继续执行“阶段四：输出描述或创建 PR”。
-   - 如果用户没有要求创建 PR，但阶段一确认本次是分支第一个提交且尚未在候选信息阶段输出描述，继续执行阶段四输出首次提交的 PR 描述。
+   - 如果用户没有要求创建 PR，但阶段一确认本次是分支第一个提交且尚未在阶段一输出描述，继续执行阶段四输出首次提交的 PR 描述。
    - 其他情况直接进入完成报告。已经提前输出的描述不要原样重复；只有实际提交 diff 或验证结果使描述内容失实时，才输出更新后的版本。
 
 ## 阶段三：处理远端分歧与冲突
@@ -123,7 +123,7 @@ description: Inspect current Git changes, generate exactly three English candida
 5. 从创建结果中获取规范 PR URL；若结果未包含 URL，再查询刚创建的 PR。只有获得可访问的 URL 后，才报告 PR 创建成功。
 6. 如果创建或查询 PR 失败，保留已经完成的 commit 和 push，报告原始错误及当前状态，不要声称 PR 已创建，也不要回滚或重复 push。
 
-如果用户没有要求创建 PR，仅在本次是分支第一个提交且候选阶段尚未输出描述时，按下面格式输出 PR 描述。若候选阶段已输出且仍然准确，不要重复。
+如果用户没有要求创建 PR，仅在本次是分支第一个提交且阶段一尚未输出描述时，按下面格式输出 PR 描述。若阶段一已输出且仍然准确，不要重复。
 
 ## Markdown 描述格式
 
@@ -157,7 +157,7 @@ description: Inspect current Git changes, generate exactly three English candida
 - [x] I've added a test for each change that was introduced, and I tried as much as possible to make a single atomic change.
 ```
 
-实际输出时必须保留示例中的 `markdown` 代码围栏，并把完整描述放在同一个代码块中。代码块外只保留流程所需的候选信息、选择提示或完成报告，不要重复描述正文。
+实际输出时必须保留示例中的 `markdown` 代码围栏，并把完整描述放在同一个代码块中。代码块外只保留流程所需的改动概括、用户主动要求时的候选信息与选择提示，或完成报告，不要重复描述正文。
 
 ## 完成报告
 
