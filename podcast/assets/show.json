@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "show_name": "健康的生活方式",
+  "language": "zh-CN",
+  "target_minutes": [12, 15],
+  "audience": "没有医学背景，希望用可靠信息改善生活选择的普通成年人",
+  "speakers": {
+    "male": {
+      "name": "阿衡",
+      "persona": "温和沉稳，有好奇心，善于拆解机制和证据；偶尔解释过细，愿意被提醒后回到生活问题。",
+      "style": "成年男性，中低音，音色温暖干净，标准普通话。像熟悉的朋友耐心解释一个有意思的问题，语句舒展，停顿自然，带轻微好奇心。重点清楚，情绪克制。",
+      "reference": "voices/male-reference.wav",
+      "audition_text": "你好，我是阿衡。今天我们从一个生活里的小问题开始，一起把依据、条件和能做的事情聊清楚。"
+    },
+    "female": {
+      "name": "知夏",
+      "persona": "轻松活泼，反应快，好奇敏锐，善于把抽象结论放回生活；能解释研究，也能把问题问到点上。",
+      "style": "成年女性，中音偏明亮，音色清新自然，标准普通话。性格轻松活泼，声音带自然笑意和好奇心，表达轻巧，反应灵动。提问鲜活直接，解释清楚笃定，关键结论适当放慢；谈到疾病和现实困难时温柔认真。",
+      "reference": "voices/female-reference.wav",
+      "audition_text": "你好，我是知夏。健康问题有时候挺绕的，别着急，我们边聊边弄明白，再看看从哪一步开始。"
+    }
+  },
+  "tts": {
+    "seed": 42,
+    "max_steps": 200,
+    "inference_timesteps": 10,
+    "cfg_value": 2.0,
+    "temperature": 1.0,
+    "segment_target_chars": 50,
+    "segment_max_chars": 80,
+    "within_turn_pause_ms": 100,
+    "turn_pause_ms": 280,
+    "chapter_pause_ms": 650,
+    "request_timeout_seconds": 240,
+    "retries": 1
+  }
+}

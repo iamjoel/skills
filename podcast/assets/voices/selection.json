@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "source": "Original voices generated locally with VoxCPM2 from the agreed voice descriptions.",
+  "created_at": "2026-10-23T06:33:52.325470+00:00",
+  "listening_status": "pending",
+  "voices": {
+    "male": {
+      "name": "阿衡",
+      "reference": "male-reference.wav",
+      "style": "成年男性，中低音，音色温暖干净，标准普通话。像熟悉的朋友耐心解释一个有意思的问题，语句舒展，停顿自然，带轻微好奇心。重点清楚，情绪克制。",
+      "text": "你好，我是阿衡。今天我们从一个生活里的小问题开始，一起把依据、条件和能做的事情聊清楚。",
+      "sha256": "ea02b81727d92f6a6429ac0cce25a2ca7c6284be8c0add078d86da2dd8c65bd1",
+      "seed": 42,
+      "seconds": 8.0,
+      "listening_status": "pending"
+    },
+    "female": {
+      "name": "知夏",
+      "reference": "female-reference.wav",
+      "style": "成年女性，中音偏明亮，音色清新自然，标准普通话。性格轻松活泼，声音带自然笑意和好奇心，表达轻巧，反应灵动。提问鲜活直接，解释清楚笃定，关键结论适当放慢；谈到疾病和现实困难时温柔认真。",
+      "text": "你好，我是知夏。健康问题有时候挺绕的，别着急，我们边聊边弄明白，再看看从哪一步开始。",
+      "sha256": "809d979c97cc2e5981c69418813df5e61be65b14898c8db54da64c163d3a03e2",
+      "seed": 42,
+      "seconds": 7.2,
+      "listening_status": "pending"
+    }
+  }
+}

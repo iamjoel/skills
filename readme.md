@@ -15,6 +15,12 @@
 | [`frontend-pr-chore-review`](./coding/frontend-pr-chore-review/SKILL.md)       | 审查前端 Chore：判断工程维护是否完整、产品行为是否保持，并识别新增风险。                                                               |
 | [`submit-git-changes`](./coding/submit-git-changes/SKILL.md)                   | 检查当前 Git 改动，生成英文 commit message 候选，并在确认后完成提交与推送；支持生成 PR 描述、关联 Linear issue，以及安全处理远端冲突。 |
 
+## 内容创作
+
+| Skill | 简介 |
+| --- | --- |
+| [`podcast`](./podcast/SKILL.md) | 《健康的生活方式》：阿衡与知夏的中文对谈科普播客，支持证据查证、对谈写作、本机 VoxCPM2 配音和局部重做。 |
+
 ## 第三方 Skill
 
 - [Archify](https://github.com/tt-a1i/archify) 适合架构图。
