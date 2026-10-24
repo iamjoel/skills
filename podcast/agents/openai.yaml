@@ -1,4 +1,0 @@
-interface:
-  display_name: "健康的生活方式"
-  short_description: "以阿衡与知夏的普通话对谈，将健康生活方式问题制作成有来源、有行动建议的播客。"
-  default_prompt: "用 $podcast 制作一期《健康的生活方式》对谈播客，使用可靠来源和本机 VoxCPM2 配音。"
