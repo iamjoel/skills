@@ -19,7 +19,7 @@
 
 | Skill | 简介 |
 | --- | --- |
-| [`podcast`](./podcast/SKILL.md) | 《健康的生活方式》：阿衡与知夏的中文对谈科普播客，支持证据查证、对谈写作、本机 VoxCPM2 配音和局部重做。 |
+| [`healthy-lifestyle-podcast`](./healthy-lifestyle-podcast/SKILL.md) | 《健康的生活方式》：阿衡与知夏的中文对谈科普播客，支持证据查证、对谈写作、本机 VoxCPM2 配音和局部重做。 |
 
 ## 第三方 Skill
 

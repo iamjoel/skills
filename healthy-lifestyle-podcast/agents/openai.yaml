@@ -1,0 +1,4 @@
+interface:
+  display_name: "健康生活方式对谈播客"
+  short_description: "将健康生活方式主题制作成中文双人科普播客，支持证据查证、脚本创作与本机配音。"
+  default_prompt: "用 $healthy-lifestyle-podcast 制作一期《健康的生活方式》中文双人科普播客，查证可靠来源、编写对谈脚本，并使用本机 VoxCPM2 配音。"
