@@ -25,3 +25,4 @@
 
 - [Archify](https://github.com/tt-a1i/archify) 适合架构图。
 - [Excalidraw Diagram Generator](https://www.skills.sh/github/awesome-copilot/excalidraw-diagram-generator) 适合画流程图。
+- [Impeccable](https://impeccable.style/) 适合网页与界面设计，提供设计审查、视觉打磨和响应式适配等 skills。
