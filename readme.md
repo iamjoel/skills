@@ -21,6 +21,12 @@
 | --- | --- |
 | [`healthy-lifestyle-podcast`](./healthy-lifestyle-podcast/SKILL.md) | 《健康的生活方式》：阿衡与知夏的中文对谈科普播客，支持证据查证、对谈写作、本机 VoxCPM2 配音和局部重做。 |
 
+## 个人工具
+
+| Skill | 简介 |
+| --- | --- |
+| [`status-calendar`](./status-calendar/SKILL.md) | 在聊天中配置状态颜色和 emoji，查看月历，可通过 Supabase 跨设备同步记录。 |
+
 ## 第三方 Skill
 
 - [Archify](https://github.com/tt-a1i/archify) 适合架构图。

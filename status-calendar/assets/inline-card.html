@@ -1,0 +1,38 @@
+<section id="__CALENDAR_ID__" lang="zh-CN" aria-label="状态日历">
+  <div data-view></div>
+  <div data-storage></div>
+  <div data-manual hidden>
+    <label class="form-label">将这条保存请求发到当前聊天
+      <textarea class="form-control" readonly rows="3"></textarea>
+    </label>
+  </div>
+</section>
+<style>
+__CALENDAR_STYLES__
+</style>
+<script type="application/json" id="__CALENDAR_ID__-data">__CALENDAR_DATA__</script>
+<script>
+__CALENDAR_VIEW__
+(() => {
+  const root = document.getElementById("__CALENDAR_ID__");
+  const data = JSON.parse(document.getElementById("__CALENDAR_ID__-data").textContent);
+  const view = root.querySelector("[data-view]");
+
+  async function submitEdit(edit) {
+    const title = edit.action === "day" ? "保存当天记录" : "保存状态配置";
+    const prompt = "用 $status-calendar " + title + "，并在聊天里展示保存后的月历。\n" +
+      JSON.stringify({ ...edit, revision: data.revision, source: data.source });
+    try {
+      if (!window.openai?.sendFollowUpMessage) throw new Error();
+      await window.openai.sendFollowUpMessage({ title, prompt });
+    } catch {
+      const label = root.querySelector("[data-manual]");
+      label.hidden = false;
+      label.querySelector("textarea").value = prompt;
+      throw new Error("请将下方的保存请求发送到聊天。");
+    }
+  }
+
+  __CALENDAR_MOUNT__
+})();
+</script>

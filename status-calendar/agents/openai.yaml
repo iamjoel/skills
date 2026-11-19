@@ -1,0 +1,4 @@
+interface:
+  display_name: "状态日历"
+  short_description: "在聊天中配置状态颜色和 emoji，或直接查看跑步、健身和日常活动的月历。"
+  default_prompt: "用 $status-calendar 在聊天中展示我的本月日历。"

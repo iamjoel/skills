@@ -1,0 +1,53 @@
+:root {
+  --font-size-base: 16px;
+  --foreground: #171717;
+  --background: #fff;
+  --border: #dedede;
+  --muted-foreground: #606060;
+  --secondary-foreground: var(--foreground);
+  --secondary: #f5f5f5;
+}
+.month-navigation, .viz-row, .viz-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+}
+.month-navigation { margin: 0 0 1.25rem; }
+.month-navigation button:last-child { margin-left: auto; }
+.month-navigation button, .status-inline-month .btn, .status-inline-month .form-select {
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font: inherit;
+  padding: .45rem .8rem;
+}
+.status-inline-month > div > h2 { margin: 0; }
+.status-inline-month p { margin: 0; }
+.status-inline-month .text-small { font-size: .85rem; }
+.status-inline-month .text-muted { color: var(--muted-foreground); }
+.status-inline-month .text-center { text-align: center; }
+.status-inline-month .tabular-nums { font-variant-numeric: tabular-nums; }
+.status-inline-month .btn-primary { color: var(--background); background: var(--foreground); }
+.status-inline-month .form-check { display: inline-flex; gap: .4rem; align-items: center; }
+.status-inline-month .form-check-input { accent-color: var(--foreground); }
+.sc-month [role="status"] { min-height: 1em; }
+.sc-month .status-month-grid button {
+  width: 100%;
+  min-width: 0;
+  min-height: clamp(46px, 8vw, 84px);
+  padding: .2rem;
+}
+.preview .status-month-grid button {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0;
+  font-size: 12px;
+}
+.preview #preview-grid { margin-top: 1rem; }
+.preview .status-month-view { gap: .4rem; }
+.preview .status-month-view > p, .preview .status-month-view > [role="group"]:not(.status-month-grid) { display: none; }
+.body-parts-label { font-weight: 600; margin-bottom: .4rem; }
+.body-parts { color: var(--muted-foreground); font-size: .875rem; margin-top: 0; line-height: 1.8; }

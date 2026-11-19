@@ -1,0 +1,44 @@
+.status-inline-month .status-month-view,
+.status-inline-month .status-month-edit {
+  display: grid;
+  gap: calc(var(--font-size-base, 16px) * .65);
+}
+.status-inline-month [hidden] { display: none !important; }
+.status-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: calc(var(--font-size-base, 16px) * .3) clamp(1px, calc((100% - 308px) / 6), 6px);
+}
+.status-month-day {
+  position: relative;
+  min-block-size: max(48px, 4em);
+}
+.status-month-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+}
+.status-month-mixed .status-month-date { justify-self: start; width: 50%; text-align: center; }
+.status-month-day[aria-current="date"] .status-month-date { text-decoration: underline; text-underline-offset: .15em; }
+.status-month-marks {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  line-height: 1.1;
+}
+.status-month-swatch {
+  border: 1px solid var(--border, currentColor);
+  inline-size: .85em;
+  block-size: .85em;
+  flex: none;
+  border-radius: .2em;
+}
+.status-month-legend, .status-month-part-options { display: flex; flex-wrap: wrap; gap: .35em .9em; }
+.status-month-key { display: inline-flex; align-items: center; gap: .35em; overflow-wrap: anywhere; }
+.status-month-field { display: grid; gap: .25em; }
+.status-month-part-field { min-width: 0; border: 0; padding: 0; margin: 0; }
+.status-month-part-field legend { padding: 0; }
+.status-month-edit > p:empty { display: none; }

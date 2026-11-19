@@ -1,0 +1,21 @@
+.sc-config, .sc-config-list {
+  display: grid;
+  gap: calc(var(--font-size-base) * .65);
+}
+.sc-config h2 { margin-bottom: calc(var(--font-size-base) * .35); }
+.sc-config-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4em;
+  gap: calc(var(--font-size-base) * .6);
+  align-items: center;
+}
+.sc-has-custom .sc-config-grid { grid-template-columns: minmax(0, 1fr) 4em 4.2em 3em; }
+.sc-config-parts { display: grid; gap: .5em; }
+.sc-part-list { display: flex; flex-wrap: wrap; gap: .35em 1em; list-style: none; margin: 0; padding: 0; }
+.sc-part-list li { white-space: nowrap; }
+.sc-config-grid > label { min-width: 0; }
+.sc-config .viz-row { margin-top: calc(var(--font-size-base) * .4); }
+.sc-config [role="status"]:empty { display: none; }
+@media (max-width: 420px) {
+  .sc-has-custom .sc-config-grid { grid-template-columns: minmax(0, 1fr) 3.4em 3.4em 2.8em; gap: 4px; }
+}

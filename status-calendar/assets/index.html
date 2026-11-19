@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/month.css">
+  <link rel="stylesheet" href="/inline-month.css">
+  <script defer src="/inline-month.js"></script>
+  <script defer src="/month.js"></script>
+  <script defer src="/app.js"></script>
+  <title>状态日历</title>
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="wordmark"><span class="calendar-mark" aria-hidden="true"></span>状态日历</div>
+      <span class="storage-label">数据保存在本机</span>
+    </div>
+  </header>
+  <main id="app" tabindex="-1"><p role="status">正在读取日历…</p></main>
+  <template id="settings-page">
+    <header class="settings-heading">
+      <h1>配置状态</h1>
+      <p>用颜色和 emoji 标记每一天。保存后，点选日历上的日期开始记录。</p>
+    </header>
+    <div class="settings-layout">
+      <form id="settings-form">
+        <fieldset id="state-fields">
+          <legend class="sr-only">编辑状态</legend>
+          <div class="editor-head state-grid" aria-hidden="true">
+            <span>状态名称</span><span>背景色</span><span>Emoji</span><span></span>
+          </div>
+          <div id="state-list"></div>
+          <p class="body-parts-label">力量训练部位（每天最多 3 个）</p>
+          <p class="body-parts" id="body-parts"></p>
+          <button type="button" class="add-state" id="add-state"><span aria-hidden="true">＋</span> 添加状态</button>
+          <p id="form-error" class="error-text" role="alert"></p>
+          <div class="form-actions">
+            <button type="submit" class="primary" id="save-settings">保存并查看本月 <span aria-hidden="true">→</span></button>
+            <button type="button" class="quiet-button" id="cancel-settings" hidden>取消</button>
+          </div>
+        </fieldset>
+      </form>
+      <aside class="preview" aria-label="月历预览">
+        <div class="preview-top"><h2>月历预览</h2><span>示例</span></div>
+        <div id="preview-grid" aria-hidden="true" inert></div>
+        <p class="preview-note">色块展示配置效果，示例不会写入日历。</p>
+      </aside>
+    </div>
+  </template>
+</body>
+</html>

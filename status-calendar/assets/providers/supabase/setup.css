@@ -1,0 +1,6 @@
+.sc-storage {
+  display: grid;
+  gap: calc(var(--font-size-base) * .65);
+}
+.sc-storage > p:empty { display: none; }
+[data-view]:not(:empty) + [data-storage]:not(:empty) { margin-top: calc(var(--font-size-base) * 1.5); }
