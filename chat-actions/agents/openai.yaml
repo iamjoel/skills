@@ -1,0 +1,3 @@
+interface:
+  display_name: "聊天命令"
+  default_prompt: "用 $chat-actions 显示 #ls 命令列表。"
