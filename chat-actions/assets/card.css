@@ -9,15 +9,16 @@
 #__ROOT__ header { padding-inline-end: 90px; }
 #__ROOT__ header p { margin-block-start: .25rem; }
 #__ROOT__ .nav { flex-wrap: wrap; }
-#__ROOT__ .settings-controls,
+#__ROOT__ .form-controls,
 #__ROOT__ .command-actions {
   display: flex;
   align-items: center;
   gap: .5rem;
 }
 
-#__ROOT__ .settings-controls input { flex: 1; min-width: 0; }
-#__ROOT__ .settings-controls button { flex-shrink: 0; }
+#__ROOT__ .form-controls :is(input, select) { flex: 1; min-width: 0; }
+#__ROOT__ .form-controls button { flex-shrink: 0; }
+#__ROOT__ .command-actions { flex-wrap: wrap; }
 #__ROOT__ .variables {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 235px), 1fr));
@@ -41,11 +42,18 @@
 }
 
 #__ROOT__ .command-text p { margin-block-start: .25rem; white-space: pre-wrap; }
+#__ROOT__ .inline-variable {
+  display: inline-block;
+  inline-size: min(16ch, 100%);
+  vertical-align: middle;
+}
+
+#__ROOT__ [data-editing] .command-actions { justify-content: flex-end; }
+#__ROOT__ [data-editing] :is([data-action="copy"], [data-action="run"]) { display: none; }
 #__ROOT__ [data-status],
 #__ROOT__ [data-manual] { grid-column: 1 / -1; }
 #__ROOT__ [data-status]:empty { display: none; }
-#__ROOT__ [data-settings] [data-status],
-#__ROOT__ [data-settings] [data-manual] { margin-block-start: .5rem; }
+#__ROOT__ .form-controls ~ :is([data-status], [data-manual]) { margin-block-start: .5rem; }
 
 @media (max-width: 470px) {
   #__ROOT__ .command { grid-template-columns: minmax(0, 1fr); }

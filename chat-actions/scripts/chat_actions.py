@@ -2,41 +2,55 @@ import argparse
 import json
 import sys
 from html import escape
+from os import scandir
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
-DEFAULT_DIRECTORY = Path("/Users/joel/joel/storage-for-ai/actions")
 STATE_FILENAME = ".chat-actions.json"
 
 
 def command_directory(value):
     if not isinstance(value, str) or not value.strip():
-        raise ValueError("请输入命令文件地址。")
+        raise ValueError("请输入命令目录。")
     directory = Path(value.strip()).expanduser()
     if not directory.is_absolute():
         raise ValueError("请输入命令目录的绝对路径。")
     return directory
 
 
-def read_catalog(directory):
-    catalog = []
-    for path in sorted(directory.iterdir(), key=lambda path: (path.name.casefold(), path.name)):
-        if path.suffix.lower() != ".json" or not path.is_file():
-            continue
-        try:
-            data = json.loads(path.read_text(encoding="utf-8-sig"))
-            if not isinstance(data, dict) or not isinstance(data.get("commands"), list):
-                raise ValueError("需要包含 commands 数组。")
-            variables = data.get("variables", {})
-            if not isinstance(variables, dict) or not all(isinstance(v, dict) for v in variables.values()):
-                raise ValueError("variables 必须是参数对象。")
-            catalog.append((path.name, variables, data["commands"], ""))
-        except (OSError, UnicodeError, ValueError) as error:
-            catalog.append((path.name, {}, [], str(error)))
-    return catalog
+def command_files(directory):
+    return sorted(
+        (path for path in directory.iterdir() if path.suffix.lower() == ".json" and path.is_file()),
+        key=lambda path: (path.name.casefold(), path.name),
+    )
+
+
+def selected_command_file(directory, name):
+    if not isinstance(name, str) or not name or "\x00" in name:
+        raise ValueError("请用 #init 选择命令文件。")
+    path = Path(name)
+    if path.name != name or path.suffix.lower() != ".json":
+        raise ValueError("请用 #init 选择命令文件。")
+    path = directory / path
+    if not path.is_file():
+        raise ValueError(f"命令文件「{name}」不存在，请用 #init 重新选择。")
+    return path
+
+
+def read_commands(path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+        if not isinstance(data, dict) or not isinstance(data.get("commands"), list):
+            raise ValueError("需要包含 commands 数组。")
+        variables = data.get("variables", {})
+        if not isinstance(variables, dict) or not all(isinstance(v, dict) for v in variables.values()):
+            raise ValueError("variables 必须是参数对象。")
+        return path.name, variables, data["commands"], ""
+    except (OSError, UnicodeError, ValueError) as error:
+        return path.name, {}, [], str(error)
 
 
 def render_field(name, field):
@@ -78,25 +92,36 @@ def render_command(command):
     </li>'''
 
 
+def render_commands(entry):
+    _, variables, commands, error = entry
+    if error:
+        return f'<p class="text-destructive" role="alert">读取失败。{escape(error)}</p>'
+    if not commands:
+        return '<p class="text-muted">此文件没有命令。</p>'
+    fields = "\n".join(render_field(name, field) for name, field in variables.items())
+    fieldset = f'<fieldset class="variables"><legend>命令参数</legend>{fields}</fieldset>' if fields else ""
+    rows = "\n".join(render_command(command) for command in commands)
+    return f'{fieldset}<ul class="commands">{rows}</ul>'
+
+
+def render_list(entry):
+    return f'''<header><h2>命令列表</h2><p class="text-small text-muted">{escape(entry[0])}</p></header>
+    <section data-command-file>{render_commands(entry)}</section>'''
+
+
 def render_catalog(directory, catalog, root):
     tabs, panels = [], []
-    for index, (name, variables, commands, error) in enumerate(catalog):
+    for index, entry in enumerate(catalog):
         tab, panel = f"{root}-tab-{index}", f"{root}-panel-{index}"
         selected = "true" if index == 0 else "false"
         active = " active" if index == 0 else ""
         hidden = " hidden" if index else ""
         tabs.append(f'''<button class="nav-link{active}" type="button" role="tab" id="{tab}"
-          aria-controls="{panel}" aria-selected="{selected}">{escape(name)}</button>''')
-        if error:
-            body = f'<p class="text-destructive" role="alert">读取失败。{escape(error)}</p>'
-        elif not commands:
-            body = '<p class="text-muted">此文件没有命令。</p>'
-        else:
-            fields = "\n".join(render_field(name, field) for name, field in variables.items())
-            fieldset = f'<fieldset class="variables"><legend>命令参数</legend>{fields}</fieldset>' if fields else ""
-            rows = "\n".join(render_command(command) for command in commands)
-            body = f'{fieldset}<ul class="commands">{rows}</ul>'
-        panels.append(f'<section id="{panel}" role="tabpanel" aria-labelledby="{tab}"{hidden}>{body}</section>')
+          aria-controls="{panel}" aria-selected="{selected}">{escape(entry[0])}</button>''')
+        panels.append(
+            f'<section data-command-file id="{panel}" role="tabpanel" aria-labelledby="{tab}"{hidden}>'
+            f'{render_commands(entry)}</section>'
+        )
     content = "\n".join(panels) or '<p class="text-muted">目录中没有 JSON 文件。</p>'
     tablist = f'<div class="nav nav-pills" role="tablist" aria-label="命令文件">{" ".join(tabs)}</div>' if tabs else ""
     return f'''<header><h2>命令列表</h2><p class="text-small text-muted">{escape(str(directory))}</p></header>
@@ -108,14 +133,52 @@ def render_settings(directory, root):
     field = f"{root}-directory"
     return f'''<header><h2>命令设置</h2></header>
     <div data-settings>
-      <label class="form-label" for="{field}">命令文件地址</label>
-      <div class="settings-controls">
-        <input id="{field}" class="form-control" name="directory" type="text" value="{escape(str(directory))}" required spellcheck="false">
+      <label class="form-label" for="{field}">命令目录</label>
+      <div class="form-controls">
+        <input id="{field}" class="form-control" name="directory" type="text" value="{escape(str(directory or ''))}" required spellcheck="false">
         <button type="button" class="btn btn-primary">保存</button>
       </div>
       <p class="text-small" data-status role="status"></p>
       <label class="form-label" data-manual hidden>复制后发送到当前聊天<textarea class="form-control" rows="3" readonly></textarea></label>
     </div>'''
+
+
+def render_file_picker(directory, files, current, root):
+    header = '<header><h2>选择命令文件</h2></header>'
+    if not files:
+        return f'{header}<p class="text-muted">目录中没有 JSON 文件。</p>'
+    field = f"{root}-file"
+    options = ['<option value="" disabled>请选择</option>']
+    for path in files:
+        selected = " selected" if path.name == current else ""
+        name = escape(path.name)
+        options.append(f'<option value="{name}"{selected}>{name}</option>')
+    if not any(path.name == current for path in files):
+        options[0] = '<option value="" disabled selected>请选择</option>'
+    return f'''{header}
+    <div data-file-selection data-directory="{escape(str(directory))}">
+      <label class="form-label" for="{field}">命令文件</label>
+      <div class="form-controls">
+        <select id="{field}" class="form-select" required>{"".join(options)}</select>
+        <button type="button" class="btn btn-primary">确定</button>
+      </div>
+      <p class="text-small" data-status role="status"></p>
+      <label class="form-label" data-manual hidden>复制后发送到当前聊天<textarea class="form-control" rows="3" readonly></textarea></label>
+    </div>'''
+
+
+def print_catalog(catalog):
+    if not catalog:
+        print("目录中没有 JSON 文件。")
+    for name, _, commands, error in catalog:
+        print(f"\n{name}")
+        if error:
+            print(f"读取失败。{error}")
+        elif not commands:
+            print("此文件没有命令。")
+        for command in commands:
+            if isinstance(command, dict):
+                print(f"- {command.get('label') or command.get('id')}  {command.get('template', '')}")
 
 
 def atomic_write(path, content):
@@ -129,9 +192,34 @@ def atomic_write(path, content):
             temporary.unlink(missing_ok=True)
 
 
+def read_state(path):
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None, None
+    if not isinstance(config, dict):
+        raise ValueError("命令设置必须使用 JSON 对象。")
+    return command_directory(config.get("directory")), config.get("file")
+
+
+def write_state(path, directory, selected):
+    config = {"directory": str(directory)}
+    if selected:
+        config["file"] = selected
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write(path, json.dumps(config, ensure_ascii=False) + "\n")
+
+
+def read_request():
+    request = json.load(sys.stdin)
+    if not isinstance(request, dict):
+        raise ValueError("请求必须使用 JSON 对象。")
+    return request
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("settings", "list", "save"))
+    parser.add_argument("mode", choices=("settings", "save", "init", "select", "list", "list-all"))
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--text", action="store_true")
     args = parser.parse_args()
@@ -139,30 +227,58 @@ def main():
     state = output / STATE_FILENAME
     try:
         if args.mode == "save":
-            request = json.load(sys.stdin)
-            if not isinstance(request, dict):
-                raise ValueError("设置必须使用 JSON 对象。")
-            directory = command_directory(request.get("directory"))
-        elif state.exists():
-            directory = command_directory(json.loads(state.read_text(encoding="utf-8"))["directory"])
-        else:
-            directory = DEFAULT_DIRECTORY
+            new_directory = command_directory(read_request().get("directory"))
+            with scandir(new_directory):
+                pass
+            try:
+                directory, selected = read_state(state)
+            except (UnicodeError, ValueError):
+                directory, selected = None, None
+            write_state(state, new_directory, selected if new_directory == directory else None)
+            print(f"已更新命令目录「{new_directory}」。")
+            return
+
+        directory, selected = read_state(state)
+        if directory is None and args.mode != "settings":
+            raise ValueError("请先用 #setting 配置命令目录。")
+
+        if args.mode == "select":
+            request = read_request()
+            if command_directory(request.get("directory")) != directory:
+                raise ValueError("命令目录已更改，请用 #init 重新选择。")
+            path = selected_command_file(directory, request.get("file"))
+            write_state(state, directory, path.name)
+            print(f"已更新命令文件为「{path.name}」。用 #ls 查看此文件的命令。")
+            return
 
         root = f"chat-actions-{uuid4().hex}"
-        view = "settings" if args.mode == "settings" else "list"
-        if view == "settings":
+        if args.mode == "settings":
+            if args.text:
+                print(directory or "尚未配置命令目录。")
+                return
             markup = render_settings(directory, root)
-        else:
-            catalog = read_catalog(directory)
-            if args.mode == "list" and args.text:
+        elif args.mode == "init":
+            files = command_files(directory)
+            if args.text:
                 print(directory)
-                for name, _, commands, error in catalog:
-                    print(f"\n{name}")
-                    if error:
-                        print(f"读取失败。{error}")
-                    for command in commands:
-                        if isinstance(command, dict):
-                            print(f"- {command.get('label') or command.get('id')}  {command.get('template', '')}")
+                if not files:
+                    print("目录中没有 JSON 文件。")
+                for path in files:
+                    suffix = "（当前选择）" if path.name == selected else ""
+                    print(f"- {path.name}{suffix}")
+                return
+            markup = render_file_picker(directory, files, selected, root)
+        elif args.mode == "list":
+            entry = read_commands(selected_command_file(directory, selected))
+            if args.text:
+                print_catalog([entry])
+                return
+            markup = render_list(entry)
+        else:
+            catalog = [read_commands(path) for path in command_files(directory)]
+            if args.text:
+                print(directory)
+                print_catalog(catalog)
                 return
             markup = render_catalog(directory, catalog, root)
 
@@ -170,14 +286,12 @@ def main():
         script = (ASSETS / "card.js").read_text(encoding="utf-8").replace("__ROOT__", root)
         fragment = f'<div id="{root}" lang="zh-CN">{markup}</div>\n<style>\n{css}</style>\n<script>\n{script}</script>\n'
         if len(fragment.encode("utf-8")) > 1_000_000:
-            raise ValueError("命令列表超过聊天视图容量。")
+            raise ValueError("内容超过聊天视图容量，请使用文字模式。")
         output.mkdir(parents=True, exist_ok=True)
-        path = output / f"{root}-{view}.html"
+        path = output / f"{root}-{args.mode}.html"
         atomic_write(path, fragment)
-        if args.mode == "save":
-            atomic_write(state, json.dumps({"directory": str(directory)}, ensure_ascii=False) + "\n")
         print(path)
-    except (OSError, UnicodeError, ValueError, KeyError) as error:
+    except (OSError, UnicodeError, ValueError) as error:
         parser.exit(1, f"{error}\n")
 
 
