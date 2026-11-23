@@ -26,6 +26,27 @@
 #__ROOT__ .command-actions:empty { display: none; }
 #__ROOT__ .group-info { margin: 0 0 .625rem; }
 #__ROOT__ ul.group-info { padding-inline-start: 1.25rem; list-style: disc; }
+#__ROOT__ .info-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+}
+
+#__ROOT__ .info-link-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  inline-size: min(100%, 13rem);
+  box-sizing: border-box;
+  color: var(--card-foreground);
+  text-decoration: none;
+}
+
+#__ROOT__ .group-info > .info-progress + .info-link-card { margin-block-start: .625rem; }
+#__ROOT__ .info-row > .info-link-card { inline-size: fit-content; }
+#__ROOT__ .info-link-card:hover { text-decoration: underline; }
 #__ROOT__ .info-progress {
   display: flex;
   align-items: center;
@@ -99,6 +120,14 @@
   padding-block-start: .625rem;
 }
 
+#__ROOT__ .command-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+#__ROOT__ .command-header button { flex: none; }
 #__ROOT__ .command-text h4 { margin: 0; font-size: inherit; font-weight: 500; }
 #__ROOT__ .command-text p { margin-block-start: .25rem; white-space: pre-wrap; }
 #__ROOT__ [data-preview] > code {
@@ -114,8 +143,7 @@
   vertical-align: middle;
 }
 
-#__ROOT__ [data-editing] .command-actions { justify-content: flex-end; }
-#__ROOT__ [data-editing] :is([data-action="copy"], [data-action="run"]) { display: none; }
+#__ROOT__ [data-editing] .command-actions { display: none; }
 #__ROOT__ [data-status]:empty { display: none; }
 #__ROOT__ .form-controls ~ :is([data-status], [data-manual]) { margin-block-start: .5rem; }
 

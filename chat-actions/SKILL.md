@@ -56,11 +56,13 @@ description: "在当前聊天中用 #help 查看命令说明，用 #setting 配�
 
 每个 JSON 顶层的 `info` 在分组顶部显示自定义 HTML，也接受文本列表。文本中的 `{name}` 引用分组变量。HTML 支持常见展示标签、`class` 和无障碍标签，渲染时会移除脚本和事件属性。用 `info-progress-ring` 配合 `data-progress-value` 和 `data-progress-max` 绘制环形进度，这两个属性可直接填写数值或用 `{name}` 引用分组变量。环旁添加可读文本，例如 `今天喝水 {waterCount} / {waterGoal} 杯`。可用数值属性 `data-progress-yellow-min` 和 `data-progress-yellow-max` 指定黄色区间，包含两个端点，较低为红色，较高为绿色。
 
+信息区也支持外链卡片，例如 `<a class="card info-link-card" href="https://example.com/">收藏网站</a>`。使用绝对 HTTP 或 HTTPS 地址。点击链接会交给客户端的外部链接接口。将需要并排的项目放入 `<div class="info-row">`，宽度不足时自动换行。
+
 顶层 `variables` 定义共享变量，在分组底部的「变量」中默认折叠。`commands[].variables` 定义仅在该命令内生效的局部变量，优先于同名的分组变量。数字变量使用 `"type": "number"`，可以设置 `default` 和 `step`。旧文件中的 `counter` 和 `count` 仍可读取。
 
 命令以等高卡片排列，宽屏每行四张。在同一个 JSON 中，`commands[].card` 相同的命令显示在同一张卡里，例如 `"card": "喝水"`。每条命令独立编辑和运行，卡片按首次出现的位置排列。
 
-命令模板支持 `{name}` 和 `{?name:可选片段 {name}}`。点击「编辑变量」可原位编辑，点击「保存」提交。同组命令共享分组变量，局部变量各自保存。预览中的变量值用行内代码高亮，复制和运行使用展开后的纯文本。按每条命令的 `actions` 提供「复制」和「运行」。「运行」请求用户确认后，把文本发回当前聊天。
+命令模板支持 `{name}` 和 `{?name:可选片段 {name}}`。点击命令右上角的齿轮可原位编辑，点击同一位置的「保存」提交。同组命令共享分组变量，局部变量各自保存。预览中的变量值用行内代码高亮，复制和运行使用展开后的纯文本。按每条命令的 `actions` 提供「复制」和「运行」。「运行」请求用户确认后，把文本发回当前聊天。
 
 命令可用 `"increment": {"variable": "waterCount", "by": "cups"}`，将局部数字变量 `cups` 加到分组数字变量 `waterCount`。另一个命令可用 `"reset": "waterCount"` 将当天累计值重置为 0。累计变量在当前聊天中按日期保存，每天从 0 开始。
 

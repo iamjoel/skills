@@ -1,6 +1,14 @@
 (() => {
   const root = document.getElementById("__ROOT__");
 
+  root.addEventListener("click", event => {
+    const link = event.target.closest?.("a[data-info-link]");
+    if (event.defaultPrevented || !link || !window.openai?.openExternal) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.openai.openExternal({ href: link.href });
+  });
+
   function offerManual(container, prompt) {
     const fallback = container.querySelector("[data-manual]");
     const textarea = fallback.querySelector("textarea");
@@ -130,13 +138,9 @@
     const labelFor = name => fieldFor(name)?.closest("label").querySelector("span").textContent || name;
     let drafts = null;
 
-    const edit = names.size ? document.createElement("button") : null;
-    if (edit) {
-      edit.type = "button";
-      edit.className = "btn";
-      edit.dataset.action = "edit";
-      command.querySelector(".command-actions").prepend(edit);
-    }
+    const edit = names.size ? command.querySelector('[data-action="edit"]') : null;
+    const editIcon = edit?.querySelector("[data-edit-icon]");
+    const saveLabel = edit?.querySelector("[data-edit-save]");
 
     function refresh() {
       if (drafts) {
@@ -164,10 +168,15 @@
     }
 
     function updateEditButton() {
-      command.toggleAttribute("data-editing", Boolean(drafts));
-      edit.classList.toggle("btn-primary", Boolean(drafts));
-      edit.textContent = drafts ? "保存" : "编辑变量";
-      edit.setAttribute("aria-label", `${drafts ? "保存变量" : "编辑变量"} ${label}`);
+      const editing = Boolean(drafts);
+      const action = editing ? "保存变量" : "编辑变量";
+      command.toggleAttribute("data-editing", editing);
+      edit.classList.toggle("btn-primary", editing);
+      edit.classList.toggle("btn-ghost", !editing);
+      editIcon.hidden = editing;
+      saveLabel.hidden = !editing;
+      edit.dataset.tooltip = action;
+      edit.setAttribute("aria-label", `${action} ${label}`);
     }
 
     function inlineField(name) {
@@ -222,7 +231,7 @@
       edit.focus();
     }
 
-    if (edit) updateEditButton();
+    if (edit) edit.hidden = false;
     command.addEventListener("click", async event => {
       const button = event.target.closest("[data-action]");
       if (!button) return;

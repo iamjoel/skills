@@ -171,7 +171,16 @@ def render_command(command, grouped=False):
         buttons.append(f'<button type="button" class="{run_classes}" data-action="run" aria-label="运行 {label}">运行</button>')
     heading = "h4" if grouped else "h3"
     return f'''<li class="{classes}" data-command data-template="{template}" data-requires="{required_json}"{action_attributes}>
-      <div class="command-text"><{heading}>{label}</{heading}><p data-preview>{template}</p></div>
+      <div class="command-text">
+        <div class="command-header">
+          <{heading}>{label}</{heading}>
+          <button type="button" class="btn btn-ghost" data-action="edit" data-tooltip="编辑变量" aria-label="编辑变量 {label}" hidden>
+            <span data-edit-icon aria-hidden="true"><i data-lucide="settings">⚙︎</i></span>
+            <span data-edit-save hidden>保存</span>
+          </button>
+        </div>
+        <p data-preview>{template}</p>
+      </div>
       <div class="command-actions">{" ".join(buttons)}</div>
       <p class="text-small" data-status role="status"></p>
       <label class="form-label" data-manual hidden>手动复制<textarea class="form-control" rows="2" readonly></textarea></label>

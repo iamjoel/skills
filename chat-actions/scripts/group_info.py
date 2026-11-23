@@ -2,10 +2,11 @@ import re
 from collections.abc import Callable
 from html import escape
 from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 
 DISPLAY_TAGS = frozenset({
-    "article", "aside", "b", "blockquote", "br", "code", "dd", "div", "dl", "dt",
+    "a", "article", "aside", "b", "blockquote", "br", "code", "dd", "div", "dl", "dt",
     "em", "figcaption", "figure", "footer", "h1", "h2", "h3", "h4", "h5", "h6",
     "header", "hr", "i", "kbd", "li", "mark", "ol", "output", "p", "pre",
     "progress", "s", "section", "small", "span", "strong", "sub", "sup", "time", "ul",
@@ -27,6 +28,19 @@ BLOCKED_CONTENT_TAGS = frozenset({
 VARIABLE = re.compile(r"\{[\w.-]+\}", re.ASCII)
 
 
+def external_href(value):
+    href = (value or "").strip()
+    if "\\" in href or any(ord(character) <= 32 or ord(character) == 127 for character in href):
+        return None
+    try:
+        url = urlsplit(href)
+        if url.scheme in ("https", "http") and url.hostname:
+            return href
+    except ValueError:
+        return None
+    return None
+
+
 class _GroupInfoParser(HTMLParser):
     def __init__(self, substitute: Callable[[str], str]):
         super().__init__(convert_charrefs=True)
@@ -43,11 +57,14 @@ class _GroupInfoParser(HTMLParser):
         if self.blocked_tags or tag not in DISPLAY_TAGS:
             return
 
+        attributes = dict(attrs)
         allowed_attrs = "".join(
             f' {name}="{escape(value)}"'
-            for name, value in dict(attrs).items()
+            for name, value in attributes.items()
             if name in DISPLAY_ATTRIBUTES and value is not None
         )
+        if tag == "a" and (href := external_href(attributes.get("href"))):
+            allowed_attrs += f' href="{escape(href)}" target="_blank" rel="noopener noreferrer" data-info-link'
         self.markup.append(f"<{tag}{allowed_attrs}>")
         if tag not in VOID_TAGS:
             self.open_tags.append(tag)
