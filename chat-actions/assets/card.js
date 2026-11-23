@@ -79,17 +79,23 @@
     return parts;
   }
 
-  function expand(parts, valueFor) {
-    let text = "";
+  function expand(parts, valueFor, append) {
     for (const part of parts) {
       if (typeof part === "string") {
-        text += part;
+        append(part);
       } else if (part.body) {
-        if (valueFor(part.name)) text += expand(part.body, valueFor);
+        if (valueFor(part.name)) expand(part.body, valueFor, append);
       } else {
-        text += valueFor(part.name) || part.token;
+        const value = valueFor(part.name);
+        if (value) append(value, true);
+        else append(part.token);
       }
     }
+  }
+
+  function expandedText(parts, valueFor) {
+    let text = "";
+    expand(parts, valueFor, part => { text += part; });
     return text;
   }
 
@@ -106,18 +112,22 @@
     }
   }
 
-  function bindCommand(command, sharedFields) {
-    const label = command.querySelector("h3").textContent;
+  function bindCommand(command, sharedFields, templateValues, refreshGroup) {
+    const label = command.querySelector("h3, h4").textContent;
     const preview = command.querySelector("[data-preview]");
     const status = command.querySelector("[data-status]");
     const manual = command.querySelector("[data-manual]");
     const required = JSON.parse(command.dataset.requires);
     const names = new Set();
     const parts = parseTemplate(command.dataset.template, names);
-    const saved = new Map();
-    const rawValueFor = name => saved.get(name) ?? sharedFields.get(name)?.value ?? "";
+    const local = command.querySelector("[data-local-variables]");
+    const localFields = new Map(Array.from(local?.querySelectorAll("[data-variable]") ?? [], field =>
+      [field.dataset.variable, field]
+    ));
+    const fieldFor = name => localFields.get(name) ?? sharedFields.get(name);
+    const rawValueFor = name => fieldFor(name)?.value ?? templateValues.get(name) ?? "";
     const valueFor = name => rawValueFor(name).trim();
-    const labelFor = name => sharedFields.get(name)?.closest("label").querySelector("span").textContent || name;
+    const labelFor = name => fieldFor(name)?.closest("label").querySelector("span").textContent || name;
     let drafts = null;
 
     const edit = names.size ? document.createElement("button") : null;
@@ -129,8 +139,26 @@
     }
 
     function refresh() {
-      if (drafts) return;
-      preview.textContent = expand(parts, valueFor);
+      if (drafts) {
+        for (const [name, draft] of drafts) {
+          const value = rawValueFor(name);
+          if (value === draft.initial || draft.fields[0].value !== draft.initial) continue;
+          draft.initial = value;
+          for (const field of draft.fields) field.value = value;
+        }
+        return;
+      }
+      const content = document.createDocumentFragment();
+      expand(parts, valueFor, (text, isVariableValue) => {
+        if (isVariableValue) {
+          const code = document.createElement("code");
+          code.textContent = text;
+          content.append(code);
+        } else {
+          content.append(text);
+        }
+      });
+      preview.replaceChildren(content);
       status.textContent = "";
       manual.hidden = true;
     }
@@ -144,7 +172,7 @@
 
     function inlineField(name) {
       const draft = drafts.get(name) ?? { initial: rawValueFor(name), fields: [] };
-      const original = sharedFields.get(name);
+      const original = fieldFor(name);
       const field = original?.cloneNode(true) ?? document.createElement("input");
       const fieldLabel = labelFor(name);
       if (!original) field.className = "form-control";
@@ -182,17 +210,19 @@
     function saveEdits() {
       for (const [name, { initial, fields }] of drafts) {
         const value = fields[0].value;
-        if (value !== initial) saved.set(name, value);
+        if (value === initial) continue;
+        const field = fieldFor(name);
+        if (field) field.value = value;
+        else templateValues.set(name, value);
       }
       drafts = null;
       updateEditButton();
-      refresh();
+      refreshGroup();
       status.textContent = "已保存变量。";
       edit.focus();
     }
 
     if (edit) updateEditButton();
-    refresh();
     command.addEventListener("click", async event => {
       const button = event.target.closest("[data-action]");
       if (!button) return;
@@ -205,14 +235,42 @@
       const missing = required.find(name => !valueFor(name));
       if (missing !== undefined) {
         if (names.has(missing)) startEditing(missing);
-        else sharedFields.get(missing)?.focus();
+        else {
+          const field = sharedFields.get(missing);
+          if (field) {
+            field.closest("details").open = true;
+            field.focus();
+          }
+        }
         status.textContent = `请填写「${labelFor(missing)}」。`;
         return;
       }
 
       manual.hidden = true;
-      const prompt = expand(parts, valueFor);
+      let prompt = expandedText(parts, valueFor);
       if (button.dataset.action === "run") {
+        const incrementBy = command.dataset.incrementBy;
+        const reset = command.dataset.reset !== undefined;
+        let amount;
+        if (incrementBy) {
+          amount = valueFor(incrementBy);
+          const number = Number(amount);
+          if (!Number.isFinite(number) || number <= 0) {
+            if (names.has(incrementBy)) startEditing(incrementBy);
+            status.textContent = `请为「${labelFor(incrementBy)}」输入大于 0 的数量。`;
+            return;
+          }
+        }
+        if (incrementBy || reset) {
+          const request = {
+            file: command.closest("[data-command-file]").dataset.commandFile,
+            command: command.dataset.commandId,
+            amount,
+            requestId: crypto.randomUUID(),
+          };
+          const action = reset ? "reset" : "increment";
+          prompt += `\n#${action}\n` + JSON.stringify(request);
+        }
         const title = `运行「${label}」`.slice(0, 250);
         await send(command, button, title, prompt, "请在聊天中确认运行。");
         return;
@@ -236,9 +294,42 @@
   }
 
   for (const panel of root.querySelectorAll("[data-command-file]")) {
-    const shared = panel.querySelector(".variables");
+    const shared = panel.querySelector(":scope > .command-parameters > .variables");
     const fields = new Map(Array.from(shared?.querySelectorAll("[data-variable]") ?? [], field => [field.dataset.variable, field]));
-    const updates = Array.from(panel.querySelectorAll("[data-command]"), command => bindCommand(command, fields));
-    shared?.addEventListener("input", () => updates.forEach(update => update()));
+    const templateValues = new Map();
+    const info = Array.from(panel.querySelectorAll("[data-group-info]"), item =>
+      [item, parseTemplate(item.dataset.groupInfo, new Set())]
+    );
+    const rings = Array.from(panel.querySelectorAll(".group-info .info-progress-ring[data-progress-value][data-progress-max]"), ring => ({
+      ring,
+      value: parseTemplate(ring.dataset.progressValue, new Set()),
+      max: parseTemplate(ring.dataset.progressMax, new Set()),
+    }));
+    const updates = Array.from(panel.querySelectorAll("[data-command]"), command =>
+      bindCommand(command, fields, templateValues, refreshGroup)
+    );
+
+    function refreshGroup() {
+      for (const update of updates) update();
+      const valueFor = name => (fields.get(name)?.value ?? templateValues.get(name) ?? "").trim();
+      for (const [item, parts] of info) item.textContent = expandedText(parts, valueFor);
+      for (const { ring, value, max } of rings) {
+        const current = Number(expandedText(value, valueFor));
+        const target = Number(expandedText(max, valueFor));
+        const fraction = Number.isFinite(current) && Number.isFinite(target) && target > 0
+          ? Math.min(1, Math.max(0, current / target))
+          : 0;
+        ring.style.setProperty("--info-progress", `${fraction * 100}%`);
+        const yellowMin = Number(ring.dataset.progressYellowMin);
+        const yellowMax = Number(ring.dataset.progressYellowMax);
+        if (Number.isFinite(current) && Number.isFinite(yellowMin) && Number.isFinite(yellowMax) && yellowMin <= yellowMax) {
+          const color = current < yellowMin ? "red" : current <= yellowMax ? "yellow" : "green";
+          ring.style.setProperty("--info-progress-color", `var(--${color})`);
+        }
+      }
+    }
+
+    refreshGroup();
+    shared?.addEventListener("input", refreshGroup);
   }
 })();
