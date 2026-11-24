@@ -1,2 +1,4 @@
 .DS_Store
 /.chat-actions-output/
+/visualizations/*/chat-actions-*.html
+/visualizations/*/.chat-actions*

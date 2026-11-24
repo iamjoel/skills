@@ -7,14 +7,14 @@ from datetime import date
 from functools import partial
 from html import escape
 from math import isfinite
-from os import scandir
+from os import environ, scandir
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import NamedTuple, Union
 from uuid import uuid4
 
 from daily_totals import read_totals, record_increment, record_reset
-from group_info import render_group_html
+from group_info import external_href, render_group_html
 from shared_variables import read_variable_values, save_variable_values
 
 
@@ -99,6 +99,8 @@ def valid_variable_value(field, value):
     if not value:
         return True
     kind = field.get("type")
+    if kind == "url":
+        return external_href(value) is not None
     if kind in NUMBER_TYPES:
         return bool(re.fullmatch(r"-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?", value)) and isfinite(float(value))
     if kind == "select" and isinstance(field.get("options"), list):
@@ -205,7 +207,10 @@ def render_field(name, field):
         readonly = " disabled" if field.get("readonly") else ""
         control = f'<select class="form-select" {attributes}{readonly}>{"".join(options)}</select>'
     else:
-        input_type = f'type="number" step="{escape(str(field.get("step", 1)))}"' if numeric else 'type="text"'
+        if numeric:
+            input_type = f'type="number" step="{escape(str(field.get("step", 1)))}"'
+        else:
+            input_type = 'type="url"' if kind == "url" else 'type="text"'
         readonly = " readonly" if field.get("readonly") else ""
         control = f'<input class="form-control" {input_type} {attributes} value="{escape(str(initial))}"{readonly}>'
     return f'<label class="form-label"><span>{label}</span>{control}</label>'
@@ -358,7 +363,7 @@ def render_settings(directory, root):
     field = f"{root}-directory"
     return f'''<header><h2>命令设置</h2></header>
     <div data-settings>
-      <label class="form-label" for="{field}">命令目录</label>
+      <label class="form-label" for="{field}">全局命令目录</label>
       <div class="form-controls">
         <input id="{field}" class="form-control" name="directory" type="text" value="{escape(str(directory or ''))}" required spellcheck="false">
         <button type="button" class="btn btn-primary">保存</button>
@@ -439,7 +444,27 @@ def read_state(path):
     return command_directory(config.get("directory")), config.get("file")
 
 
-def write_state(path, directory, selected):
+def global_config_path():
+    config_home = Path(environ.get("XDG_CONFIG_HOME", ""))
+    if not config_home.is_absolute():
+        config_home = Path.home() / ".config"
+    return config_home / "chat-shortcuts" / "config.json"
+
+
+def read_chat_state(global_config, state):
+    global_directory, _ = read_state(global_config)
+    try:
+        local_directory, selected = read_state(state)
+    except (UnicodeError, ValueError):
+        if global_directory is None:
+            raise
+        return global_directory, None
+    if global_directory is None:
+        return local_directory, selected
+    return global_directory, selected if local_directory == global_directory else None
+
+
+def write_state(path, directory, selected=None):
     config = {"directory": str(directory)}
     if selected:
         config["file"] = selected
@@ -447,10 +472,10 @@ def write_state(path, directory, selected):
     atomic_write(path, json.dumps(config, ensure_ascii=False) + "\n")
 
 
-def select_shortcut_file(state, directory, filename):
+def select_shortcut_file(global_config, state, directory, filename):
     if filename is None:
         return
-    current_directory, selected = read_state(state)
+    current_directory, selected = read_chat_state(global_config, state)
     if current_directory != directory:
         raise ValueError("命令目录已更改，请重新输入文件快捷指令。")
     if selected != filename:
@@ -485,6 +510,8 @@ def configure_variable_values(directory, database, request):
 
 
 def record_command_change(mode, directory, database, day, request):
+    if "directory" in request and command_directory(request["directory"]) != directory:
+        raise ValueError("全局命令目录已更改，请重新打开命令面板。")
     path = selected_command_file(directory, request.get("file"))
     entry = read_commands(path)
     if entry.error:
@@ -527,6 +554,7 @@ def main():
     parser.add_argument("--text", action="store_true")
     args = parser.parse_args()
     output = args.output_dir.resolve()
+    global_config = global_config_path()
     state = output / STATE_FILENAME
     database = output / ".chat-actions-totals.sqlite3"
     variables_database = output / ".chat-actions-variables.sqlite3"
@@ -536,17 +564,13 @@ def main():
             new_directory = command_directory(read_request().get("directory"))
             with scandir(new_directory):
                 pass
-            try:
-                directory, selected = read_state(state)
-            except (UnicodeError, ValueError):
-                directory, selected = None, None
-            write_state(state, new_directory, selected if new_directory == directory else None)
-            print(f"已更新命令目录「{new_directory}」。")
+            write_state(global_config, new_directory)
+            print(f"已更新全局命令目录「{new_directory}」。")
             return
 
-        directory, selected = read_state(state)
+        directory, selected = read_chat_state(global_config, state)
         if directory is None and args.mode != "settings":
-            raise ValueError("请先用 #setting 配置命令目录。")
+            raise ValueError("请先用 #setting 配置全局命令目录。")
 
         if args.mode in ("increment", "reset"):
             record_command_change(args.mode, directory, database, day, read_request())
@@ -561,7 +585,7 @@ def main():
             if command_directory(request.get("directory")) != directory:
                 raise ValueError("命令目录已更改，请用 #init 重新选择。")
             path = selected_command_file(directory, request.get("file"))
-            write_state(state, directory, path.name)
+            select_shortcut_file(global_config, state, directory, path.name)
             print(f"已更新命令文件为「{path.name}」。用 #ls 查看此文件的命令。")
             return
 
@@ -601,7 +625,7 @@ def main():
                     return
                 markup = render_variable_settings(entry, directory)
             elif args.text:
-                select_shortcut_file(state, directory, shortcut_file)
+                select_shortcut_file(global_config, state, directory, shortcut_file)
                 print_catalog([entry])
                 return
             else:
@@ -617,13 +641,15 @@ def main():
 
         css = (ASSETS / "card.css").read_text(encoding="utf-8").replace("__ROOT__", root)
         script = (ASSETS / "card.js").read_text(encoding="utf-8").replace("__ROOT__", root)
-        fragment = f'<div id="{root}" lang="zh-CN">{markup}</div>\n<style>\n{css}</style>\n<script>\n{script}</script>\n'
+        directory_attr = f' data-command-directory="{escape(str(directory))}"' if directory else ""
+        fragment = (f'<div id="{root}" lang="zh-CN"{directory_attr}>{markup}</div>\n'
+                    f'<style>\n{css}</style>\n<script>\n{script}</script>\n')
         if len(fragment.encode("utf-8")) > 1_000_000:
             raise ValueError("内容超过聊天视图容量，请使用文字模式。")
         output.mkdir(parents=True, exist_ok=True)
         path = output / f"{root}-{args.mode}.html"
         atomic_write(path, fragment)
-        select_shortcut_file(state, directory, shortcut_file)
+        select_shortcut_file(global_config, state, directory, shortcut_file)
         print(path)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as error:
         parser.exit(1, f"{error}\n")

@@ -25,15 +25,18 @@ BLOCKED_CONTENT_TAGS = frozenset({
     "audio", "canvas", "iframe", "math", "noscript", "object", "script", "style", "svg",
     "template", "textarea", "title", "video", "xmp",
 })
-VARIABLE = re.compile(r"\{[\w.-]+\}", re.ASCII)
+VARIABLE = re.compile(r"\{([\w.-]+)\}", re.ASCII)
 
 
 def external_href(value):
-    href = (value or "").strip()
+    if not isinstance(value, str):
+        return None
+    href = value.strip()
     if "\\" in href or any(ord(character) <= 32 or ord(character) == 127 for character in href):
         return None
     try:
         url = urlsplit(href)
+        _ = url.port  # An invalid port raises ValueError when accessed.
         if url.scheme in ("https", "http") and url.hostname:
             return href
     except ValueError:
@@ -49,6 +52,7 @@ class _GroupInfoParser(HTMLParser):
         self.text: list[str] = []
         self.open_tags: list[str] = []
         self.blocked_tags: list[str] = []
+        self.hidden_text_depth = None
 
     def handle_starttag(self, tag, attrs):
         if tag in BLOCKED_CONTENT_TAGS:
@@ -63,12 +67,24 @@ class _GroupInfoParser(HTMLParser):
             for name, value in attributes.items()
             if name in DISPLAY_ATTRIBUTES and value is not None
         )
-        if tag == "a" and (href := external_href(attributes.get("href"))):
-            allowed_attrs += f' href="{escape(href)}" target="_blank" rel="noopener noreferrer" data-info-link'
+        if tag == "a":
+            source = (attributes.get("href") or "").strip()
+            variable = VARIABLE.fullmatch(source)
+            href = external_href(self.substitute(source) if variable else source)
+            if href:
+                allowed_attrs += f' href="{escape(href)}"'
+            if href or variable:
+                allowed_attrs += ' target="_blank" rel="noopener noreferrer" data-info-link'
+            if variable:
+                allowed_attrs += f' data-info-link-variable="{escape(variable[1])}"'
+                if not href:
+                    allowed_attrs += " hidden"
+                    if self.hidden_text_depth is None:
+                        self.hidden_text_depth = len(self.open_tags) + 1
         self.markup.append(f"<{tag}{allowed_attrs}>")
         if tag not in VOID_TAGS:
             self.open_tags.append(tag)
-        if tag in TEXT_BOUNDARIES:
+        if tag in TEXT_BOUNDARIES and self.hidden_text_depth is None:
             self.text.append(" ")
 
     def handle_startendtag(self, tag, attrs):
@@ -95,12 +111,15 @@ class _GroupInfoParser(HTMLParser):
         else:
             value = data
             self.markup.append(escape(value))
-        self.text.append(value)
+        if self.hidden_text_depth is None:
+            self.text.append(value)
 
     def close_tag(self):
+        if len(self.open_tags) == self.hidden_text_depth:
+            self.hidden_text_depth = None
         tag = self.open_tags.pop()
         self.markup.append(f"</{tag}>")
-        if tag in TEXT_BOUNDARIES:
+        if tag in TEXT_BOUNDARIES and self.hidden_text_depth is None:
             self.text.append(" ")
         return tag
 

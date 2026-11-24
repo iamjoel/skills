@@ -91,7 +91,7 @@
   list-style: none;
 }
 
-#__ROOT__ .group-info + .commands {
+#__ROOT__ .group-info:not([hidden]) + .commands {
   border-block-start: 1px solid var(--border);
   padding-block-start: .75rem;
 }

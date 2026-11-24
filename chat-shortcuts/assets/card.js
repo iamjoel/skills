@@ -2,7 +2,7 @@
   const root = document.getElementById("__ROOT__");
 
   root.addEventListener("click", event => {
-    const link = event.target.closest?.("a[data-info-link]");
+    const link = event.target.closest?.("a[data-info-link][href]");
     if (event.defaultPrevented || !link || !window.openai?.openExternal) return;
     event.preventDefault();
     event.stopPropagation();
@@ -33,6 +33,24 @@
     }
   }
 
+  function externalHref(value) {
+    const href = value.trim();
+    if (!/^https?:\/\/[^/]/i.test(href) || /[\\\x00-\x20\x7f]/.test(href)) return null;
+    try {
+      return new URL(href).hostname ? href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function fieldRequirement(field) {
+    if (field.validity?.badInput) return "输入有效数字";
+    if (field.type === "url" && field.value.trim() && !externalHref(field.value)) {
+      return "输入完整的 HTTP 或 HTTPS 链接";
+    }
+    return "";
+  }
+
   const settings = root.querySelector("[data-settings]");
   if (settings) {
     const directory = settings.querySelector("input");
@@ -46,9 +64,9 @@
         return;
       }
       settings.querySelector("[data-manual]").hidden = true;
-      const prompt = "用 $chat-shortcuts 更新命令目录。\n#setting\n" +
+      const prompt = "用 $chat-shortcuts 更新全局命令目录。\n#setting\n" +
         JSON.stringify({ directory: value });
-      send(settings, save, "保存命令目录", prompt, "请在聊天中确认保存。");
+      send(settings, save, "保存全局命令目录", prompt, "请在聊天中确认保存。");
     }
 
     save.addEventListener("click", saveDirectory);
@@ -79,14 +97,20 @@
       const fields = Array.from(variableSettings.querySelectorAll("[data-variable]"))
         .filter(field => !field.readOnly && !field.disabled);
       const initial = new Map(fields.map(field => [field, field.value]));
+      const status = variableSettings.querySelector("[data-status]");
       let saving = false;
 
       function updateSaveButton() {
-        save.disabled = saving || fields.some(field => field.validity?.badInput) ||
+        const requirement = fields.map(fieldRequirement).find(Boolean);
+        save.disabled = saving || Boolean(requirement) ||
           fields.every(field => field.value === initial.get(field));
+        return requirement;
       }
 
-      variableSettings.addEventListener("input", updateSaveButton);
+      variableSettings.addEventListener("input", () => {
+        const requirement = updateSaveButton();
+        if (!saving) status.textContent = requirement ? `请${requirement}。` : "";
+      });
       save.addEventListener("click", async () => {
         if (save.disabled) return;
         const values = Object.fromEntries(fields
@@ -194,8 +218,9 @@
       }
       if (drafts) {
         for (const [name, { fields }] of drafts) {
-          if (fields.some(field => field.validity?.badInput)) {
-            return { name, message: `请为「${labelFor(name)}」输入有效数字。` };
+          const requirement = fields.map(fieldRequirement).find(Boolean);
+          if (requirement) {
+            return { name, message: `请为「${labelFor(name)}」${requirement}。` };
           }
         }
       }
@@ -341,6 +366,7 @@
         const reset = command.dataset.reset !== undefined;
         if (incrementBy || reset) {
           const request = {
+            directory: root.dataset.commandDirectory,
             file: command.closest("[data-command-file]").dataset.commandFile,
             command: command.dataset.commandId,
             amount: incrementBy ? valueFor(incrementBy) : undefined,
@@ -384,6 +410,9 @@
     const info = Array.from(panel.querySelectorAll("[data-group-info]"), item =>
       [item, parseTemplate(item.dataset.groupInfo, new Set())]
     );
+    const infoBlock = panel.querySelector(":scope > .group-info");
+    const infoRow = infoBlock?.querySelector(":scope > .info-row:only-child");
+    const infoLinks = Array.from(panel.querySelectorAll("a[data-info-link-variable]"));
     const rings = Array.from(panel.querySelectorAll(".group-info .info-progress-ring[data-progress-value][data-progress-max]"), ring => ({
       ring,
       value: parseTemplate(ring.dataset.progressValue, new Set()),
@@ -397,6 +426,15 @@
       for (const update of updates) update();
       const valueFor = name => (fields.get(name)?.value ?? templateValues.get(name) ?? "").trim();
       for (const [item, parts] of info) item.textContent = expandedText(parts, valueFor);
+      for (const link of infoLinks) {
+        const href = externalHref(valueFor(link.dataset.infoLinkVariable));
+        if (href) link.href = href;
+        else link.removeAttribute("href");
+        link.hidden = !href;
+      }
+      if (infoRow && infoLinks.length) {
+        infoBlock.hidden = Array.from(infoRow.children).every(item => item.hidden);
+      }
       for (const { ring, value, max } of rings) {
         const current = Number(expandedText(value, valueFor));
         const target = Number(expandedText(max, valueFor));
