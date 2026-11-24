@@ -1,9 +1,9 @@
 ---
-name: chat-actions
-description: "在当前聊天中用 #help 查看说明、#setting 配置命令目录、#init 选择命令文件、#ls 查看选中文件、#la 查看全部命令、#cv 查看并配置共享变量。用 JSON 中配置的 # 快捷命令打开对应卡片，支持填写变量、复制、运行，以及处理确认后的 #increment、#reset 和已配置的「喝水 +n」记录。"
+name: chat-shortcuts
+description: "在会话中用 # 快捷指令调用高频命令。用本地 JSON 管理命令组，支持快捷切换、填写变量、复制和确认运行。用于 #help、#setting、#init、#ls、#la、#cv、#文件名、自定义快捷指令及面板确认请求（包括 #increment、#reset 和已配置的喝水记录）。"
 ---
 
-# 聊天命令
+# 会话快捷命令
 
 ## `#help`
 
@@ -19,6 +19,7 @@ description: "在当前聊天中用 #help 查看说明、#setting 配置命令�
 | `#ls` | 查看当前选中的文件里的命令。 |
 | `#la` | 查看命令目录中的全部命令，按文件分标签展示。 |
 | `#cv` | 查看和配置选中文件的共享变量。 |
+| `#<文件名>` | 省略 `.json` 后缀，切换并显示该文件，例如 `#dify`。 |
 | `#<快捷命令>` | 打开对应的命令卡片，例如 `#cb`。 |
 
 ### English
@@ -31,11 +32,12 @@ description: "在当前聊天中用 #help 查看说明、#setting 配置命令�
 | `#ls` | Show commands from the selected file. |
 | `#la` | Show all commands in the command directory, with a tab for each file. |
 | `#cv` | View and configure shared variables for the selected file. |
+| `#<filename>` | Switch to and show a file by its name without `.json`, for example `#dify`. |
 | `#<shortcut>` | Open the matching command card, for example `#cb`. |
 
 ## 命令操作
 
-命令目录由用户通过 `#setting` 或直接提供的路径配置。以当前聊天的可写 visualization 目录作为 `OUT`，同一聊天持续使用该目录保存命令目录和选中的文件。若客户端没有该目录，在当前任务的持久可写目录中为该聊天选一个独立子目录，并沿用其绝对路径。
+命令目录由用户通过 `#setting` 或直接提供的路径配置。以当前聊天的可写 visualization 目录作为 `OUT`，同一聊天持续使用该目录保存命令目录和选中的文件。若客户端没有该目录，在当前任务的持久可写目录中为该聊天选一个独立子目录，并沿用其绝对路径。已有会话沿用之前的 `OUT`，旧面板发来的 `$chat-actions` 确认消息按其中的 `#setting`、`#init` 或 `#cv` 处理。
 
 在本技能目录运行对应操作。
 
@@ -46,7 +48,7 @@ description: "在当前聊天中用 #help 查看说明、#setting 配置命令�
 | `#ls` | `python3 -B scripts/chat_actions.py list --output-dir "$OUT"` |
 | `#la` 或明确要求输出所有命令 | `python3 -B scripts/chat_actions.py list-all --output-dir "$OUT"` |
 | 单独输入 `#cv` | `python3 -B scripts/chat_actions.py variables --output-dir "$OUT"` |
-| 单独输入快捷命令，例如 `#cb` | `python3 -B scripts/chat_actions.py shortcut --shortcut '#cb' --output-dir "$OUT"`。把用户输入的快捷命令作为独立参数传入。 |
+| 单独输入文件或命令快捷指令，例如 `#dify`、`#cb` | `python3 -B scripts/chat_actions.py shortcut --shortcut '#dify' --output-dir "$OUT"`。把用户输入的快捷指令作为独立参数传入。 |
 | `#setting` 后跟 `{"directory":"/绝对/目录"}`，或用户直接要求更新路径 | 将 JSON 通过标准输入传给 `python3 -B scripts/chat_actions.py save --output-dir "$OUT"`。 |
 | `#init` 后跟 `{"directory":"/绝对/目录","file":"文件名.json"}` | 将 JSON 通过标准输入传给 `python3 -B scripts/chat_actions.py select --output-dir "$OUT"`。 |
 | `#cv` 后跟 `{"directory":"/绝对/目录","file":"文件名.json","values":{"变量名":"新值"}}` | 将 JSON 通过标准输入传给 `python3 -B scripts/chat_actions.py save-variables --output-dir "$OUT"`。 |
@@ -55,9 +57,11 @@ description: "在当前聊天中用 #help 查看说明、#setting 配置命令�
 
 `#ls` 每次重读选中的文件并直接展示命令。用户输入 `#la` 或明确要求读取整个目录的命令时，重新读取目录中的 JSON 并按文件分组。单个列表的标题和全部列表的标签使用各 JSON 顶层的 `name`，缺省时使用去掉 `.json` 后缀的文件名。读取错误显示在对应的组内。尚未配置目录时引导用户用 `#setting`。尚未选择文件或文件已删除时，引导用户用 `#init`。若保存目录失败，说明具体错误并重新展示设置页，保留之前的目录。
 
-命令可选配 `"shortcut": "#cb"`。右侧动作按钮用灰色英文括号显示快捷命令，例如 `运行 (#cb)`。优先标在「运行」按钮，只有「复制」时标在那里。快捷命令以 `#` 开头，之后可使用字母、数字、下划线或连字符。单独输入时，在当前命令目录的所有 JSON 中忽略大小写查找。给不同命令配置唯一的名称，内建命令和 `#increment`、`#reset` 为保留名称。找到时展示对应卡片，由用户在卡片内填写变量、复制或确认运行。未找到或重复时返回脚本错误。
+每个命令 JSON 直接用去掉最后一个 `.json` 后缀的文件名作快捷指令，保留文件名本身的点和空格。单独输入 `#dify` 或 `#life` 时，选中对应文件并显示整组命令。后续 `#ls` 和 `#cv` 使用这一选择。内建命令优先，其次匹配文件名，再匹配命令配置的快捷指令。匹配忽略大小写，有多个同名文件时用 `#init` 选择。
 
-界面操作成功时返回生成片段的绝对路径。将路径放进下面的内容标记，单独占一行。设置页用标题 `命令设置`，选择页用 `选择命令文件`，`#ls` 用分组名称，`#la` 用 `命令列表`，`#cv` 用 `变量配置`，快捷命令面板用对应的快捷命令作标题。
+命令可选配 `"shortcut": "#cb"`。右侧动作按钮用灰色英文括号显示快捷命令，例如 `运行 (#cb)`。优先标在「运行」按钮，只有「复制」时标在那里。快捷命令以 `#` 开头，之后可使用字母、数字、下划线或连字符。为每条命令配置唯一的名称，并避开文件名、内建命令以及 `#increment` 和 `#reset`。匹配命令时展示对应卡片，由用户在卡片内填写变量、复制或确认运行。未找到或重复时返回脚本错误。
+
+界面操作成功时返回生成片段的绝对路径。将路径放进下面的内容标记，单独占一行。设置页用标题 `命令设置`，选择页用 `选择命令文件`，`#ls` 和文件快捷指令用分组名称，`#la` 用 `命令列表`，`#cv` 用 `变量配置`，单条命令面板用对应的快捷命令作标题。
 
 ```text
 visualize{"path":"<脚本返回的绝对路径>","title":"命令列表"}

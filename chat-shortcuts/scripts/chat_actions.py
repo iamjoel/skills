@@ -150,18 +150,28 @@ def read_panel_entry(path, database, variables_database, day):
 
 
 def read_shortcut(directory, database, variables_database, day, value):
-    shortcut = configured_shortcut(value)
-    if shortcut is None:
+    shortcut = value.strip() if isinstance(value, str) else ""
+    if not shortcut.startswith("#") or len(shortcut) == 1 or shortcut.casefold() in RESERVED_SHORTCUTS:
         raise ValueError("请输入自定义的 # 快捷命令，例如 #cb。")
 
+    files = command_files(directory)
+    key = shortcut.casefold()
+    matching_files = [path for path in files if f"#{path.stem}".casefold() == key]
+    if len(matching_files) > 1:
+        filenames = "、".join(path.name for path in matching_files)
+        raise ValueError(f"文件快捷命令「{shortcut}」匹配多个文件（{filenames}），请用 #init 选择。")
+    if matching_files:
+        path = matching_files[0]
+        return read_panel_entry(path, database, variables_database, day), path.name
+
     matches = []
-    for path in command_files(directory):
+    for path in files:
         entry = read_panel_entry(path, database, variables_database, day)
         for command in entry.commands:
             if not isinstance(command, dict):
                 continue
             candidate = configured_shortcut(command.get("shortcut"))
-            if candidate and candidate.casefold() == shortcut.casefold():
+            if candidate and candidate.casefold() == key:
                 matches.append(entry._replace(commands=[command]))
 
     if not matches:
@@ -169,7 +179,7 @@ def read_shortcut(directory, database, variables_database, day, value):
     if len(matches) > 1:
         filenames = "、".join(dict.fromkeys(entry.filename for entry in matches))
         raise ValueError(f"快捷命令「{shortcut}」有重复配置，请检查 {filenames}。")
-    return matches[0]
+    return matches[0], None
 
 
 def format_group_info(template, variables):
@@ -437,6 +447,16 @@ def write_state(path, directory, selected):
     atomic_write(path, json.dumps(config, ensure_ascii=False) + "\n")
 
 
+def select_shortcut_file(state, directory, filename):
+    if filename is None:
+        return
+    current_directory, selected = read_state(state)
+    if current_directory != directory:
+        raise ValueError("命令目录已更改，请重新输入文件快捷指令。")
+    if selected != filename:
+        write_state(state, directory, filename)
+
+
 def read_request():
     request = json.load(sys.stdin)
     if not isinstance(request, dict):
@@ -546,6 +566,7 @@ def main():
             return
 
         root = f"chat-actions-{uuid4().hex}"
+        shortcut_file = None
         if args.mode == "settings":
             if args.text:
                 print(directory or "尚未配置命令目录。")
@@ -564,7 +585,7 @@ def main():
             markup = render_file_picker(directory, files, selected, root)
         elif args.mode in ("list", "shortcut", "variables"):
             if args.mode == "shortcut":
-                entry = read_shortcut(directory, database, variables_database, day, args.shortcut)
+                entry, shortcut_file = read_shortcut(directory, database, variables_database, day, args.shortcut)
             else:
                 path = selected_command_file(directory, selected)
                 entry = read_panel_entry(path, database, variables_database, day)
@@ -580,6 +601,7 @@ def main():
                     return
                 markup = render_variable_settings(entry, directory)
             elif args.text:
+                select_shortcut_file(state, directory, shortcut_file)
                 print_catalog([entry])
                 return
             else:
@@ -601,6 +623,7 @@ def main():
         output.mkdir(parents=True, exist_ok=True)
         path = output / f"{root}-{args.mode}.html"
         atomic_write(path, fragment)
+        select_shortcut_file(state, directory, shortcut_file)
         print(path)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as error:
         parser.exit(1, f"{error}\n")

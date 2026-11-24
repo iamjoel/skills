@@ -26,7 +26,7 @@
 | Skill | 简介 |
 | --- | --- |
 | [`status-calendar`](./status-calendar/SKILL.md) | 在聊天中配置状态颜色和 emoji，查看月历，可通过 Supabase 跨设备同步记录。 |
-| [`chat-actions`](./chat-actions/SKILL.md) | 用 `#setting` 配置命令目录，`#init` 选择命令文件，`#ls` 查看选中的文件，`#la` 查看全部命令。 |
+| [`chat-shortcuts`](./chat-shortcuts/SKILL.md) | 在会话中用 `#` 快捷指令调用高频命令，支持切换本地 JSON 命令组、填写变量、复制或确认运行。 |
 
 ## 第三方 Skill
 

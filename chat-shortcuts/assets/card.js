@@ -46,7 +46,7 @@
         return;
       }
       settings.querySelector("[data-manual]").hidden = true;
-      const prompt = "用 $chat-actions 更新命令目录。\n#setting\n" +
+      const prompt = "用 $chat-shortcuts 更新命令目录。\n#setting\n" +
         JSON.stringify({ directory: value });
       send(settings, save, "保存命令目录", prompt, "请在聊天中确认保存。");
     }
@@ -66,7 +66,7 @@
     confirm.addEventListener("click", () => {
       if (!file.reportValidity()) return;
       picker.querySelector("[data-manual]").hidden = true;
-      const prompt = "用 $chat-actions 更新选中的命令文件。\n#init\n" +
+      const prompt = "用 $chat-shortcuts 更新选中的命令文件。\n#init\n" +
         JSON.stringify({ directory: picker.dataset.directory, file: file.value });
       send(picker, confirm, "选择命令文件", prompt, "请在聊天中确认选择。");
     });
@@ -98,7 +98,7 @@
           values,
         };
         variableSettings.querySelector("[data-manual]").hidden = true;
-        const prompt = "用 $chat-actions 更新变量配置。\n#cv\n" + JSON.stringify(request);
+        const prompt = "用 $chat-shortcuts 更新变量配置。\n#cv\n" + JSON.stringify(request);
         saving = true;
         try {
           await send(variableSettings, save, "保存变量配置", prompt, "请在聊天中确认保存。");
