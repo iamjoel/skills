@@ -20,10 +20,12 @@
 #__ROOT__ .form-controls button { flex-shrink: 0; }
 #__ROOT__ .command-actions {
   flex-wrap: wrap;
+  justify-content: flex-end;
   margin-block-start: auto;
 }
 
-#__ROOT__ .command-actions:empty { display: none; }
+#__ROOT__ .command-actions:not(:has(> button:not([hidden]))) { display: none; }
+#__ROOT__ .command-shortcut { opacity: .75; }
 #__ROOT__ .group-info { margin: 0 0 .625rem; }
 #__ROOT__ ul.group-info { padding-inline-start: 1.25rem; list-style: disc; }
 #__ROOT__ .info-row {
@@ -67,8 +69,6 @@
 }
 
 #__ROOT__ .info-progress-text { display: grid; gap: .125rem; }
-#__ROOT__ .command-parameters { margin-block-start: .5rem; }
-#__ROOT__ .command-parameters summary { font-weight: 500; }
 #__ROOT__ .variables {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 235px), 1fr));
@@ -91,13 +91,10 @@
   list-style: none;
 }
 
-#__ROOT__ .group-info + .commands,
-#__ROOT__ .commands + .command-parameters {
+#__ROOT__ .group-info + .commands {
   border-block-start: 1px solid var(--border);
   padding-block-start: .75rem;
 }
-
-#__ROOT__ .commands + .command-parameters { margin-block-start: .625rem; }
 
 #__ROOT__ .command,
 #__ROOT__ .command-card {
@@ -143,7 +140,6 @@
   vertical-align: middle;
 }
 
-#__ROOT__ [data-editing] .command-actions { display: none; }
 #__ROOT__ [data-status]:empty { display: none; }
 #__ROOT__ .form-controls ~ :is([data-status], [data-manual]) { margin-block-start: .5rem; }
 

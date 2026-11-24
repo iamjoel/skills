@@ -6,6 +6,7 @@ import sys
 from datetime import date
 from functools import partial
 from html import escape
+from math import isfinite
 from os import scandir
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -14,11 +15,13 @@ from uuid import uuid4
 
 from daily_totals import read_totals, record_increment, record_reset
 from group_info import render_group_html
+from shared_variables import read_variable_values, save_variable_values
 
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 STATE_FILENAME = ".chat-actions.json"
 NUMBER_TYPES = ("number", "counter", "count")
+RESERVED_SHORTCUTS = frozenset({"#help", "#setting", "#init", "#ls", "#la", "#cv", "#increment", "#reset"})
 
 
 class CommandFile(NamedTuple):
@@ -58,6 +61,13 @@ def selected_command_file(directory, name):
     return path
 
 
+def configured_shortcut(value):
+    shortcut = value.strip() if isinstance(value, str) else ""
+    if re.fullmatch(r"#[\w-]+", shortcut) and shortcut.casefold() not in RESERVED_SHORTCUTS:
+        return shortcut
+    return None
+
+
 def increment_rule(command, variables):
     rule = command.get("increment")
     if rule is None:
@@ -83,7 +93,20 @@ def reset_variable(command, variables):
     raise ValueError("reset 需要命令 id 和分组数字变量名称，并且应单独配置。")
 
 
-def read_commands(path, totals=None):
+def valid_variable_value(field, value):
+    if not isinstance(value, str):
+        return False
+    if not value:
+        return True
+    kind = field.get("type")
+    if kind in NUMBER_TYPES:
+        return bool(re.fullmatch(r"-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?", value)) and isfinite(float(value))
+    if kind == "select" and isinstance(field.get("options"), list):
+        return value in map(str, field["options"])
+    return True
+
+
+def read_commands(path, totals=None, saved_values=None):
     display_name = path.stem
     try:
         data = json.loads(path.read_text(encoding="utf-8-sig"))
@@ -108,6 +131,10 @@ def read_commands(path, totals=None):
                 target = rule["variable"]
             if target:
                 variables[target] = {**variables[target], "default": totals.get(target, "0"), "readonly": True}
+        for name, value in (saved_values or {}).items():
+            field = variables.get(name)
+            if field is not None and not field.get("readonly") and valid_variable_value(field, value):
+                variables[name] = {**field, "default": value}
         return CommandFile(path.name, display_name, variables, data["commands"], info)
     except (OSError, UnicodeError, ValueError) as error:
         return CommandFile(path.name, display_name, {}, [], [], str(error))
@@ -115,6 +142,34 @@ def read_commands(path, totals=None):
 
 def initial_value(field):
     return field.get("default", 0 if field.get("type") in NUMBER_TYPES else "")
+
+
+def read_panel_entry(path, database, variables_database, day):
+    group = str(path.resolve())
+    return read_commands(path, read_totals(database, group, day), read_variable_values(variables_database, group))
+
+
+def read_shortcut(directory, database, variables_database, day, value):
+    shortcut = configured_shortcut(value)
+    if shortcut is None:
+        raise ValueError("请输入自定义的 # 快捷命令，例如 #cb。")
+
+    matches = []
+    for path in command_files(directory):
+        entry = read_panel_entry(path, database, variables_database, day)
+        for command in entry.commands:
+            if not isinstance(command, dict):
+                continue
+            candidate = configured_shortcut(command.get("shortcut"))
+            if candidate and candidate.casefold() == shortcut.casefold():
+                matches.append(entry._replace(commands=[command]))
+
+    if not matches:
+        raise ValueError(f"找不到快捷命令「{shortcut}」。")
+    if len(matches) > 1:
+        filenames = "、".join(dict.fromkeys(entry.filename for entry in matches))
+        raise ValueError(f"快捷命令「{shortcut}」有重复配置，请检查 {filenames}。")
+    return matches[0]
 
 
 def format_group_info(template, variables):
@@ -135,9 +190,10 @@ def render_field(name, field):
         options = ['<option value="">请选择</option>']
         for option in field["options"]:
             value = escape(str(option))
-            selected = " selected" if option == initial else ""
+            selected = " selected" if str(option) == str(initial) else ""
             options.append(f'<option value="{value}"{selected}>{value}</option>')
-        control = f'<select class="form-select" {attributes}>{"".join(options)}</select>'
+        readonly = " disabled" if field.get("readonly") else ""
+        control = f'<select class="form-select" {attributes}{readonly}>{"".join(options)}</select>'
     else:
         input_type = f'type="number" step="{escape(str(field.get("step", 1)))}"' if numeric else 'type="text"'
         readonly = " readonly" if field.get("readonly") else ""
@@ -162,29 +218,47 @@ def render_command(command, grouped=False):
     if rule or command.get("reset"):
         action_attributes = f' data-command-id="{escape(command["id"])}"'
         action_attributes += f' data-increment-by="{escape(rule["by"])}"' if rule else " data-reset"
-    actions = command.get("actions", [])
-    buttons = []
-    if isinstance(actions, list) and "copy" in actions:
-        buttons.append(f'<button type="button" class="btn" data-action="copy" aria-label="复制 {label}">复制</button>')
-    if isinstance(actions, list) and "run" in actions:
-        run_classes = "btn" if command.get("reset") else "btn btn-primary"
-        buttons.append(f'<button type="button" class="{run_classes}" data-action="run" aria-label="运行 {label}">运行</button>')
+    actions = command.get("actions")
+    actions = actions if isinstance(actions, list) else []
+    shortcut = configured_shortcut(command.get("shortcut"))
+    buttons = [
+        f'<button type="button" class="btn btn-ghost" data-action="cancel" '
+        f'aria-label="取消编辑变量 {label}" hidden>取消</button>'
+    ]
+    for action, caption in (("copy", "复制"), ("run", "运行")):
+        if action not in actions:
+            continue
+        button_classes = "btn btn-primary" if action == "run" and not command.get("reset") else "btn"
+        suffix = ""
+        shortcut_label = ""
+        if shortcut and (action == "run" or "run" not in actions):
+            shortcut_text = f"({escape(shortcut)})"
+            suffix = f" {shortcut_text}"
+            shortcut_label = f' <span class="command-shortcut">{shortcut_text}</span>'
+        buttons.append(
+            f'<button type="button" class="{button_classes}" data-action="{action}" '
+            f'aria-label="{caption}{suffix} {label}">{caption}{shortcut_label}</button>'
+        )
+    if len(buttons) == 1:
+        buttons.append(
+            f'<button type="button" class="btn btn-primary" data-action="save" '
+            f'aria-label="保存变量 {label}" hidden>保存</button>'
+        )
     heading = "h4" if grouped else "h3"
     return f'''<li class="{classes}" data-command data-template="{template}" data-requires="{required_json}"{action_attributes}>
       <div class="command-text">
         <div class="command-header">
           <{heading}>{label}</{heading}>
           <button type="button" class="btn btn-ghost" data-action="edit" data-tooltip="编辑变量" aria-label="编辑变量 {label}" hidden>
-            <span data-edit-icon aria-hidden="true"><i data-lucide="settings">⚙︎</i></span>
-            <span data-edit-save hidden>保存</span>
+            <i data-lucide="settings" aria-hidden="true">⚙︎</i>
           </button>
         </div>
         <p data-preview>{template}</p>
       </div>
-      <div class="command-actions">{" ".join(buttons)}</div>
       <p class="text-small" data-status role="status"></p>
       <label class="form-label" data-manual hidden>手动复制<textarea class="form-control" rows="2" readonly></textarea></label>
       {f'<div data-local-variables hidden>{local_fields}</div>' if local_fields else ''}
+      <div class="command-actions">{" ".join(buttons)}</div>
     </li>'''
 
 
@@ -221,20 +295,32 @@ def render_commands(entry):
         )
         details = f'<ul class="group-info" aria-label="分组信息">{items}</ul>'
     fields = "\n".join(render_field(name, field) for name, field in variables.items())
-    parameters = ""
-    if fields:
-        parameters = f'''<details class="command-parameters">
-          <summary>变量</summary>
-          <fieldset class="variables" aria-label="变量">{fields}</fieldset>
-        </details>'''
+    shared = f'<div data-shared-variables hidden>{fields}</div>' if fields else ""
     rows = render_command_cards(commands)
     command_list = f'<ul class="commands">{rows}</ul>' if rows else '<p class="text-muted">此文件没有命令。</p>'
-    return f'{details}{command_list}{parameters}'
+    return f'{details}{command_list}{shared}'
 
 
 def render_list(entry):
     return f'''<header><h2>{escape(entry.name)}</h2></header>
     <section data-command-file="{escape(entry.filename)}">{render_commands(entry)}</section>'''
+
+
+def render_variable_settings(entry, directory):
+    header = '<header><h2>变量配置</h2></header>'
+    if not entry.variables:
+        return f'{header}<p class="text-muted">此文件没有共享变量。</p>'
+    fields = "\n".join(render_field(name, field) for name, field in entry.variables.items())
+    controls = ""
+    if any(not field.get("readonly") for field in entry.variables.values()):
+        controls = '''<p class="text-small" data-status role="status"></p>
+        <label class="form-label" data-manual hidden>复制后发送到当前聊天<textarea class="form-control" rows="3" readonly></textarea></label>
+        <div class="command-actions"><button type="button" class="btn btn-primary" data-save-variables disabled>保存</button></div>'''
+    return f'''{header}
+    <div data-variable-settings data-directory="{escape(str(directory))}" data-file="{escape(entry.filename)}">
+      <fieldset class="variables" aria-label="变量配置">{fields}</fieldset>
+      {controls}
+    </div>'''
 
 
 def render_catalog(directory, catalog, root):
@@ -315,7 +401,11 @@ def print_catalog(catalog):
             print("此文件没有命令。")
         for command in commands:
             if isinstance(command, dict):
-                print(f"- {command.get('label') or command.get('id')}  {command.get('template', '')}")
+                label = command.get("label") or command.get("id")
+                shortcut = configured_shortcut(command.get("shortcut"))
+                if shortcut:
+                    label = f"{label} ({shortcut})"
+                print(f"- {label}  {command.get('template', '')}")
 
 
 def atomic_write(path, content):
@@ -354,6 +444,26 @@ def read_request():
     return request
 
 
+def configure_variable_values(directory, database, request):
+    if command_directory(request.get("directory")) != directory:
+        raise ValueError("命令目录已更改，请用 #cv 重新打开变量配置。")
+    path = selected_command_file(directory, request.get("file"))
+    entry = read_commands(path)
+    if entry.error:
+        raise ValueError(entry.error)
+    values = request.get("values")
+    if not isinstance(values, dict):
+        raise ValueError("变量配置需要 values 对象。")
+    for name, value in values.items():
+        field = entry.variables.get(name)
+        if field is None or field.get("readonly"):
+            raise ValueError(f"变量「{name}」不可编辑。")
+        if not valid_variable_value(field, value):
+            raise ValueError(f"变量「{field.get('label') or name}」的值无效。")
+    save_variable_values(database, str(path.resolve()), values)
+    print(f"已更新「{entry.name}」的变量配置。")
+
+
 def record_command_change(mode, directory, database, day, request):
     path = selected_command_file(directory, request.get("file"))
     entry = read_commands(path)
@@ -389,14 +499,17 @@ def record_command_change(mode, directory, database, day, request):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("settings", "save", "init", "select", "list", "list-all", "increment", "reset"))
+    parser.add_argument("mode", choices=("settings", "save", "init", "select", "list", "list-all", "shortcut",
+                                         "variables", "save-variables", "increment", "reset"))
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--shortcut")
     parser.add_argument("--date", type=date.fromisoformat)
     parser.add_argument("--text", action="store_true")
     args = parser.parse_args()
     output = args.output_dir.resolve()
     state = output / STATE_FILENAME
     database = output / ".chat-actions-totals.sqlite3"
+    variables_database = output / ".chat-actions-variables.sqlite3"
     day = (args.date or date.today()).isoformat()
     try:
         if args.mode == "save":
@@ -417,6 +530,10 @@ def main():
 
         if args.mode in ("increment", "reset"):
             record_command_change(args.mode, directory, database, day, read_request())
+            return
+
+        if args.mode == "save-variables":
+            configure_variable_values(directory, variables_database, read_request())
             return
 
         if args.mode == "select":
@@ -445,15 +562,30 @@ def main():
                     print(f"- {path.name}{suffix}")
                 return
             markup = render_file_picker(directory, files, selected, root)
-        elif args.mode == "list":
-            path = selected_command_file(directory, selected)
-            entry = read_commands(path, read_totals(database, str(path.resolve()), day))
-            if args.text:
+        elif args.mode in ("list", "shortcut", "variables"):
+            if args.mode == "shortcut":
+                entry = read_shortcut(directory, database, variables_database, day, args.shortcut)
+            else:
+                path = selected_command_file(directory, selected)
+                entry = read_panel_entry(path, database, variables_database, day)
+            if args.mode == "variables":
+                if entry.error:
+                    raise ValueError(entry.error)
+                if args.text:
+                    print("变量配置")
+                    if not entry.variables:
+                        print("此文件没有共享变量。")
+                    for name, field in entry.variables.items():
+                        print(f"- {field.get('label') or name}  {initial_value(field)}")
+                    return
+                markup = render_variable_settings(entry, directory)
+            elif args.text:
                 print_catalog([entry])
                 return
-            markup = render_list(entry)
+            else:
+                markup = render_list(entry)
         else:
-            catalog = [read_commands(path, read_totals(database, str(path.resolve()), day))
+            catalog = [read_panel_entry(path, database, variables_database, day)
                        for path in command_files(directory)]
             if args.text:
                 print(directory)

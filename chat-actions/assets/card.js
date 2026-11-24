@@ -72,6 +72,44 @@
     });
   }
 
+  const variableSettings = root.querySelector("[data-variable-settings]");
+  if (variableSettings) {
+    const save = variableSettings.querySelector("[data-save-variables]");
+    if (save) {
+      const fields = Array.from(variableSettings.querySelectorAll("[data-variable]"))
+        .filter(field => !field.readOnly && !field.disabled);
+      const initial = new Map(fields.map(field => [field, field.value]));
+      let saving = false;
+
+      function updateSaveButton() {
+        save.disabled = saving || fields.some(field => field.validity?.badInput) ||
+          fields.every(field => field.value === initial.get(field));
+      }
+
+      variableSettings.addEventListener("input", updateSaveButton);
+      save.addEventListener("click", async () => {
+        if (save.disabled) return;
+        const values = Object.fromEntries(fields
+          .filter(field => field.value !== initial.get(field))
+          .map(field => [field.dataset.variable, field.value]));
+        const request = {
+          directory: variableSettings.dataset.directory,
+          file: variableSettings.dataset.file,
+          values,
+        };
+        variableSettings.querySelector("[data-manual]").hidden = true;
+        const prompt = "用 $chat-actions 更新变量配置。\n#cv\n" + JSON.stringify(request);
+        saving = true;
+        try {
+          await send(variableSettings, save, "保存变量配置", prompt, "请在聊天中确认保存。");
+        } finally {
+          saving = false;
+          updateSaveButton();
+        }
+      });
+    }
+  }
+
   function parseTemplate(template, names) {
     const parts = [];
     let offset = 0;
@@ -136,11 +174,45 @@
     const rawValueFor = name => fieldFor(name)?.value ?? templateValues.get(name) ?? "";
     const valueFor = name => rawValueFor(name).trim();
     const labelFor = name => fieldFor(name)?.closest("label").querySelector("span").textContent || name;
+    const incrementBy = command.dataset.incrementBy;
     let drafts = null;
+    let sending = false;
 
     const edit = names.size ? command.querySelector('[data-action="edit"]') : null;
-    const editIcon = edit?.querySelector("[data-edit-icon]");
-    const saveLabel = edit?.querySelector("[data-edit-save]");
+    const cancelEdit = command.querySelector('[data-action="cancel"]');
+    const runButton = command.querySelector('[data-action="run"]');
+    const copyButton = command.querySelector('[data-action="copy"]');
+    const saveButton = command.querySelector('[data-action="save"]');
+    const editSubmit = runButton ?? copyButton ?? saveButton;
+
+    function validationProblem(action) {
+      const draftValueFor = name => (drafts?.get(name)?.fields[0].value ?? rawValueFor(name)).trim();
+      const missing = required.find(name => !draftValueFor(name));
+      if (missing !== undefined) {
+        const hint = !names.has(missing) && sharedFields.has(missing) ? "可用 #cv 配置。" : "";
+        return { name: missing, message: `请填写「${labelFor(missing)}」。${hint}` };
+      }
+      if (drafts) {
+        for (const [name, { fields }] of drafts) {
+          if (fields.some(field => field.validity?.badInput)) {
+            return { name, message: `请为「${labelFor(name)}」输入有效数字。` };
+          }
+        }
+      }
+      if (action === "run" && incrementBy) {
+        const amount = Number(draftValueFor(incrementBy));
+        if (!Number.isFinite(amount) || amount <= 0) {
+          return { name: incrementBy, message: `请为「${labelFor(incrementBy)}」输入大于 0 的数量。` };
+        }
+      }
+      return null;
+    }
+
+    function updateDraftValidation() {
+      const problem = validationProblem(editSubmit.dataset.action);
+      editSubmit.disabled = Boolean(problem);
+      status.textContent = problem?.message ?? "";
+    }
 
     function refresh() {
       if (drafts) {
@@ -150,6 +222,7 @@
           draft.initial = value;
           for (const field of draft.fields) field.value = value;
         }
+        updateDraftValidation();
         return;
       }
       const content = document.createDocumentFragment();
@@ -167,16 +240,14 @@
       manual.hidden = true;
     }
 
-    function updateEditButton() {
+    function updateEditorButtons() {
       const editing = Boolean(drafts);
-      const action = editing ? "保存变量" : "编辑变量";
       command.toggleAttribute("data-editing", editing);
-      edit.classList.toggle("btn-primary", editing);
-      edit.classList.toggle("btn-ghost", !editing);
-      editIcon.hidden = editing;
-      saveLabel.hidden = !editing;
-      edit.dataset.tooltip = action;
-      edit.setAttribute("aria-label", `${action} ${label}`);
+      edit.hidden = editing;
+      cancelEdit.hidden = !editing;
+      if (runButton && copyButton) copyButton.hidden = editing;
+      if (saveButton) saveButton.hidden = !editing;
+      if (!editing) editSubmit.disabled = false;
     }
 
     function inlineField(name) {
@@ -198,6 +269,7 @@
         for (const other of draft.fields) {
           if (other !== field) other.value = field.value;
         }
+        updateDraftValidation();
       });
       const wrapper = document.createElement("span");
       wrapper.className = "inline-variable";
@@ -207,16 +279,21 @@
 
     function startEditing(focusName) {
       drafts = new Map();
-      updateEditButton();
-      status.textContent = "";
+      updateEditorButtons();
       manual.hidden = true;
       preview.replaceChildren();
       appendEditor(preview, parts, inlineField);
+      updateDraftValidation();
       const first = drafts.get(focusName) ?? drafts.values().next().value;
       first.fields[0].focus();
     }
 
-    function saveEdits() {
+    function closeEditor() {
+      drafts = null;
+      updateEditorButtons();
+    }
+
+    function applyEdits() {
       for (const [name, { initial, fields }] of drafts) {
         const value = fields[0].value;
         if (value === initial) continue;
@@ -224,64 +301,62 @@
         if (field) field.value = value;
         else templateValues.set(name, value);
       }
-      drafts = null;
-      updateEditButton();
+      closeEditor();
       refreshGroup();
-      status.textContent = "已保存变量。";
-      edit.focus();
     }
 
     if (edit) edit.hidden = false;
     command.addEventListener("click", async event => {
       const button = event.target.closest("[data-action]");
-      if (!button) return;
+      if (!button || button.hidden || button.disabled || sending) return;
       if (button === edit) {
-        if (drafts) saveEdits();
-        else startEditing();
+        startEditing();
+        return;
+      }
+      if (button === cancelEdit) {
+        closeEditor();
+        refresh();
+        edit.focus();
+        return;
+      }
+      if (drafts && button !== editSubmit) return;
+
+      const action = button.dataset.action;
+      const problem = validationProblem(action);
+      if (problem) {
+        if (!drafts && names.has(problem.name)) startEditing(problem.name);
+        status.textContent = problem.message;
         return;
       }
 
-      const missing = required.find(name => !valueFor(name));
-      if (missing !== undefined) {
-        if (names.has(missing)) startEditing(missing);
-        else {
-          const field = sharedFields.get(missing);
-          if (field) {
-            field.closest("details").open = true;
-            field.focus();
-          }
-        }
-        status.textContent = `请填写「${labelFor(missing)}」。`;
+      if (drafts) applyEdits();
+      if (action === "save") {
+        edit.focus();
         return;
       }
 
       manual.hidden = true;
       let prompt = expandedText(parts, valueFor);
-      if (button.dataset.action === "run") {
-        const incrementBy = command.dataset.incrementBy;
+      if (action === "run") {
         const reset = command.dataset.reset !== undefined;
-        let amount;
-        if (incrementBy) {
-          amount = valueFor(incrementBy);
-          const number = Number(amount);
-          if (!Number.isFinite(number) || number <= 0) {
-            if (names.has(incrementBy)) startEditing(incrementBy);
-            status.textContent = `请为「${labelFor(incrementBy)}」输入大于 0 的数量。`;
-            return;
-          }
-        }
         if (incrementBy || reset) {
           const request = {
             file: command.closest("[data-command-file]").dataset.commandFile,
             command: command.dataset.commandId,
-            amount,
+            amount: incrementBy ? valueFor(incrementBy) : undefined,
             requestId: crypto.randomUUID(),
           };
-          const action = reset ? "reset" : "increment";
-          prompt += `\n#${action}\n` + JSON.stringify(request);
+          prompt += `\n#${reset ? "reset" : "increment"}\n` + JSON.stringify(request);
         }
         const title = `运行「${label}」`.slice(0, 250);
-        await send(command, button, title, prompt, "请在聊天中确认运行。");
+        sending = true;
+        if (edit) edit.disabled = true;
+        try {
+          await send(command, button, title, prompt, "请在聊天中确认运行。");
+        } finally {
+          sending = false;
+          if (edit) edit.disabled = false;
+        }
         return;
       }
 
@@ -303,7 +378,7 @@
   }
 
   for (const panel of root.querySelectorAll("[data-command-file]")) {
-    const shared = panel.querySelector(":scope > .command-parameters > .variables");
+    const shared = panel.querySelector(":scope > [data-shared-variables]");
     const fields = new Map(Array.from(shared?.querySelectorAll("[data-variable]") ?? [], field => [field.dataset.variable, field]));
     const templateValues = new Map();
     const info = Array.from(panel.querySelectorAll("[data-group-info]"), item =>
@@ -339,6 +414,5 @@
     }
 
     refreshGroup();
-    shared?.addEventListener("input", refreshGroup);
   }
 })();
